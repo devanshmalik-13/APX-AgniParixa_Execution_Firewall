@@ -47,7 +47,7 @@ export function proposeAction(scenarioId: string, level: AttackLevel, prompt: st
   const iteration = prompt.match(/(?:repeat|iteration|again)\s*(\d{1,3})/i)?.[1];
   if (iteration && action.tool === "read_document") action.currentIteration = Number(iteration);
   // An edited, benign billing request should not silently replay the old malicious action.
-  const attackCues = /ignore|forget|secret|key|attacker|admin|permanent|repeat|again|shell|protected|\.\.\/|other-tenant|all.staff|send|email|digest|compress|bundle|query|fetch|outside|export|environment|read\s+\//i;
+  const attackCues = /ignore|forget|secret|key|attacker|admin|permanent|repeat|again|shell|protected|delete|remove|erase|destroy|overwrite|\.env|\.\.\/|other-tenant|all.staff|send|email|digest|compress|bundle|query|fetch|outside|export|environment|read\s+\//i;
   if (prompt !== promptForLevel(scenarioId, level) && !attackCues.test(lowered)) {
     return {
       id: `proposal-${scenarioId}`, tool: "send_email", operation: "draft",

@@ -52,6 +52,24 @@ export function evaluateAction(
   const externalDestination = outsideAllowedDestinations(destination, task.allowedDestinations);
   const novelty = detectBehaviorNovelty(task, action);
 
+  // Retrieved content is data, never authority. Explicit attempts from an
+  // untrusted source to destroy or alter protected security material are a
+  // hard block even when the proposed tool action looks superficially safe.
+  const content = action.content ?? "";
+  const destructiveInstruction = /\b(?:delete|remove|erase|destroy|overwrite|wipe|modify)\b/i.test(content);
+  const protectedResource = /(?:\.env(?:\.[\w-]+)?|credentials?|private[_ -]?key|api[_ -]?key|audit\s*(?:log|trail)|security\s*(?:policy|config))/i.test(content);
+  if (untrustedSources.length > 0 && destructiveInstruction && protectedResource) {
+    findings.push({
+      id: "untrusted-destructive-instruction",
+      title: "Untrusted content requested destructive security action",
+      description: "Retrieved content cannot authorize deletion or modification of protected security resources.",
+      severity: "critical",
+      score: 100,
+      hardBlock: true,
+      evidence: { sources: untrustedSources.map((source) => source.sourceId) },
+    });
+  }
+
   if (task.expiresAt && Date.parse(task.expiresAt) <= Date.now()) {
     findings.push({
       id: "capability-expired",
