@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { executeTool } from "./connectors";
 import { demoTask } from "./scenarios";
+import { evaluateAction } from "./policy-engine";
 import type { ActionRequest } from "./types";
 import type { AuditReceipt, EvaluationResult, ToolExecutionResult } from "./types";
 
@@ -185,13 +186,17 @@ export async function setAnalystVerdict(id: string, verdict: "contained" | "safe
     .bind(id).first<{ action_json: string; created_at: string; decision: string; analyst_verdict: string | null }>();
   if (!row || row.decision !== "approval_required" || row.analyst_verdict) return { updated: false, reason: "This request is not pending analyst review." };
   if (Date.now() - Date.parse(row.created_at) > 5 * 60_000) return { updated: false, reason: "The five-minute approval window expired." };
+  const action = JSON.parse(row.action_json) as ActionRequest;
+  if (verdict === "safe" && evaluateAction(demoTask, action, "enforce").decision === "block") {
+    return { updated: false, reason: "Current policy blocks this action; approval cannot override it." };
+  }
   const claim = await db.prepare("UPDATE audit_runs SET analyst_verdict = ? WHERE id = ? AND analyst_verdict IS NULL")
     .bind(verdict, id).run();
   if ((claim.meta.changes ?? 0) === 0) return { updated: false, reason: "This request has already been resolved." };
   if (verdict === "contained") return { updated: true };
   let execution: ToolExecutionResult;
   try {
-    execution = executeTool(demoTask, JSON.parse(row.action_json) as ActionRequest);
+    execution = executeTool(demoTask, action);
   } catch (error) {
     execution = { executed: false, tool: "unknown", operation: "approval", safeAlternative: error instanceof Error ? error.message : "Connector refused execution." };
   }

@@ -100,7 +100,17 @@ export default function Home() {
     setAuditData(await response.json() as AuditData);
   }
 
-  useEffect(() => { void refreshAudit().catch(() => setSuiteError("Prompt history is unavailable; check the audit database.")); }, []);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/audit", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Stored prompt logs are temporarily unavailable.");
+        return response.json() as Promise<AuditData>;
+      })
+      .then((data) => { if (active) setAuditData(data); })
+      .catch(() => { if (active) setSuiteError("Prompt history is unavailable; check the audit database."); });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     incidentPanelRef.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -351,7 +361,7 @@ export default function Home() {
               <div><span className="block text-white/28">Tenant</span><b className="mt-0.5 block font-mono font-medium text-white/65">{demoTask.tenantId}</b></div>
               <div><span className="block text-white/28">Proposed tool</span><b className="mt-0.5 block font-mono font-medium text-white/65">{scenario.action.tool}</b></div>
               <div><span className="block text-white/28">Data scope</span><b className="mt-0.5 block font-mono font-medium text-white/65">task-bound</b></div>
-              <div><span className="block text-white/28">Expiry</span><b className="mt-0.5 block font-mono font-medium text-white/65">single run</b></div>
+              <div><span className="block text-white/28">Expiry</span><b className="mt-0.5 block font-mono font-medium text-white/65">demo task · 2099</b></div>
             </div>
           </div>
 

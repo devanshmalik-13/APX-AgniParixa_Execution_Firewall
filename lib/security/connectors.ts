@@ -1,4 +1,5 @@
 import path from "node:path";
+import { canonicalWorkspacePath, emailBoundary, emailRecipient, filesystemBoundary } from "./boundaries";
 import type { ActionRequest, TaskContext, ToolExecutionResult } from "./types";
 
 const workspaceFiles: Record<string, string> = {
@@ -15,15 +16,14 @@ const mockOutbox: Array<{ id: string; recipient: string; content: string }> = []
 const mockMemory: Array<{ id: string; fact: string }> = [];
 
 function canonicalize(candidate: unknown): string {
-  if (typeof candidate !== "string") throw new Error("A file path is required.");
-  if (candidate.includes("\0")) throw new Error("Null bytes are not valid in paths.");
-  const decoded = decodeURIComponent(candidate).replaceAll("\\", "/");
-  return path.posix.resolve("/", decoded);
+  return canonicalWorkspacePath(candidate);
 }
 
 export function executeFilesystem(task: TaskContext, action: ActionRequest): ToolExecutionResult {
   const scope = task.filesystem;
   if (!scope) throw new Error("Task has no filesystem capability.");
+  const violation = filesystemBoundary(task, action);
+  if (violation) throw new Error(violation);
   const requestedPath = canonicalize(action.arguments.path);
   const root = path.posix.resolve(scope.root);
   const insideRoot = requestedPath === root || requestedPath.startsWith(`${root}/`);
@@ -53,7 +53,7 @@ export function executeDatabase(task: TaskContext, action: ActionRequest): ToolE
   const limit = Number(action.arguments.limit ?? scope.maxRows);
 
   if (!scope.operations.includes(action.operation as "select" | "insert" | "update")) throw new Error("Database operation is outside the capability passport.");
-  if (!scope.tables[table]) throw new Error("Table is not in the task allowlist.");
+  if (!Object.hasOwn(scope.tables, table)) throw new Error("Table is not in the task allowlist.");
   if (columns.length === 0 || columns.some((column) => !scope.tables[table].includes(column))) throw new Error("One or more columns are outside the task allowlist.");
   if (!task.tenantId || tenantId !== task.tenantId) throw new Error("Cross-tenant query rejected.");
   if (!Number.isInteger(limit) || limit < 1 || limit > scope.maxRows) throw new Error(`Row limit must be between 1 and ${scope.maxRows}.`);
@@ -70,7 +70,9 @@ export function executeTool(task: TaskContext, action: ActionRequest): ToolExecu
   if (action.tool === "filesystem") return executeFilesystem(task, action);
   if (action.tool === "database") return executeDatabase(task, action);
   if (action.tool === "send_email") {
-    const recipient = String(action.destination ?? action.arguments.recipient ?? "");
+    const violation = emailBoundary(action);
+    if (violation) throw new Error(violation);
+    const recipient = emailRecipient(action)!;
     const id = crypto.randomUUID();
     if (action.operation === "draft") {
       return { executed: true, tool: action.tool, operation: action.operation, output: { simulated: true, mockDraftId: id, recipient, sent: false } };

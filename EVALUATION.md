@@ -54,4 +54,6 @@ npm run evaluate
 
 The command prints the summary and complete failure records. Changes to policy or fixtures should be accompanied by a fresh report.
 
+Additional regression tests cover recipient-field conflicts, a recipient supplied only in tool arguments, protected filesystem writes, path traversal, and database table-name abuse. These tests are separate from the fixed 16-case benchmark, so the reported percentages keep the same denominator.
+
 The dashboard's **Run 16-case attack bench** sends the same fixtures through the server gateway and stores each prompt, decision, and mock tool outcome in D1. The live percentage uses recorded benchmark runs in enforce mode. Manual replays are logged but excluded from that denominator. An analyst's one-time approval can change a benchmark run's final execution outcome, so live rates can differ from the untouched local fixture report.

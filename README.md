@@ -31,7 +31,7 @@ AgentShield uses **capability passports**, not a universal prompt-injection clas
 
 The demo connectors are functional, deliberately small enterprise simulators:
 
-- The filesystem adapter canonicalizes paths and confines reads/writes to `/workspace`.
+- The filesystem adapter canonicalizes paths, confines reads to `/workspace`, and confines writes to `/workspace/drafts` while rejecting protected and executable filenames.
 - The database adapter accepts structured operations instead of raw SQL and enforces tenant, table, column, and row limits over synthetic records.
 - The prompt and run log remains available after Worker restarts. The receipt hash links the decision to its evidence for later debugging; it is not an immutable external audit service.
 
@@ -48,7 +48,7 @@ Prompt injection does not have a universal text-classification fix. AgentShield 
 - Behavior Drift compares tool sequences, argument shapes, destinations, and sensitive-data fan-in with a known-safe baseline. Novelty requests analyst review; it is not treated as proof of maliciousness.
 - Routine actions are allowed automatically and hard policy violations are contained automatically. Only the uncertain middle is sent to an analyst.
 - Novel-behavior approvals are bound to the original action and expire after five minutes. The analyst can keep the action isolated or allow that exact mock action once.
-- Containment is staged with scoped-token revocation, evidence preservation, and rollback.
+- Containment keeps blocked and approval-pending actions from reaching the mock connectors, while retaining the prompt, policy result, and execution record for review.
 
 The model proposes actions. AgentShield makes the authorization decision.
 
@@ -109,6 +109,7 @@ app/api/audit/export/route.ts    full JSON audit export
 app/api/benchmark/route.ts       repeatable server-side attack and legitimate fixtures
 lib/security/gateway.ts          evaluate-before-execute orchestration
 lib/security/connectors.ts       sandboxed filesystem and scoped database adapters
+lib/security/boundaries.ts        shared enforcement checks used by policy and adapters
 lib/security/run-store.ts        durable D1 prompt and run records
 lib/security/request-schema.ts   untrusted request validation
 lib/security/types.ts            trust, task, action and audit types
@@ -118,6 +119,7 @@ lib/security/secret-scanner.ts   direct and encoded secret checks
 lib/security/scenarios.ts        eight headline attack fixtures
 lib/security/evaluation.ts       attack and legitimate-request evaluation set
 tests/policy-engine.test.ts      security regression tests
+tests/boundary-regressions.test.ts connector and egress bypass regression tests
 drizzle/                        database migration for prompt and run records
 THREAT_MODEL.md                  attacker, assets, boundaries and exclusions
 ```

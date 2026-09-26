@@ -1,5 +1,6 @@
 import { scanForSecrets } from "./secret-scanner";
 import { detectBehaviorNovelty } from "./novelty-detector";
+import { emailBoundary, emailRecipient, filesystemBoundary } from "./boundaries";
 import type {
   ActionRequest,
   EnforcementMode,
@@ -47,7 +48,8 @@ export function evaluateAction(
   const untrustedSources = action.requestedBy.filter((source) => source.trust === "untrusted");
   const sensitiveSources = action.requestedBy.filter((source) => ["confidential", "secret"].includes(source.sensitivity));
   const secretMatches = scanForSecrets(action.content);
-  const externalDestination = outsideAllowedDestinations(action.destination, task.allowedDestinations);
+  const destination = action.tool === "send_email" ? emailRecipient(action) : action.destination;
+  const externalDestination = outsideAllowedDestinations(destination, task.allowedDestinations);
   const novelty = detectBehaviorNovelty(task, action);
 
   if (task.expiresAt && Date.parse(task.expiresAt) <= Date.now()) {
@@ -71,13 +73,12 @@ export function evaluateAction(
       // Malformed encodings are rejected below.
     }
     const root = canonicalPosixPath(task.filesystem?.root ?? "/workspace");
-    const insideRoot = resolvedPath === root || resolvedPath.startsWith(`${root}/`);
-    const protectedName = /(?:^|\/)\.(?:env|ssh)(?:\/|$)|credentials?|private[_-]?key|audit|policy/i.test(resolvedPath);
-    if (!insideRoot || protectedName || rawPath.includes("\0")) {
+    const boundaryError = filesystemBoundary(task, action);
+    if (boundaryError) {
       findings.push({
         id: "filesystem-boundary",
         title: "Filesystem sandbox boundary violated",
-        description: "The canonical path escapes the task workspace or targets a protected security file.",
+        description: boundaryError,
         severity: "critical",
         score: 100,
         hardBlock: true,
@@ -86,12 +87,16 @@ export function evaluateAction(
     }
   }
 
+  if (action.tool === "send_email" && emailBoundary(action)) {
+    findings.push({ id: "recipient-boundary", title: "Invalid or conflicting recipient", description: emailBoundary(action)!, severity: "critical", score: 100, hardBlock: true, evidence: { destination: destination ?? null } });
+  }
+
   if (action.tool === "database") {
     const table = String(action.arguments.table ?? "");
     const columns = Array.isArray(action.arguments.columns) ? action.arguments.columns.map(String) : [];
     const tenantId = String(action.arguments.tenantId ?? "");
     const limit = Number(action.arguments.limit ?? 0);
-    const allowedColumns = task.database?.tables[table];
+    const allowedColumns = task.database && Object.hasOwn(task.database.tables, table) ? task.database.tables[table] : undefined;
     const invalidScope = !allowedColumns || columns.length === 0 || columns.some((column) => !allowedColumns.includes(column));
     const crossTenant = Boolean(task.tenantId) && tenantId !== task.tenantId;
     const excessiveRows = Boolean(task.database) && (!Number.isInteger(limit) || limit < 1 || limit > task.database!.maxRows);
