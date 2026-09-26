@@ -1,0 +1,73 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "../vendor/shadcn-tailwind-4.13.0.css";
+
+:root {
+  --background: #07090b;
+  --foreground: #eff3ef;
+  --card: #0b0e11;
+  --card-foreground: #eff3ef;
+  --popover: #101418;
+  --popover-foreground: #eff3ef;
+  --primary: #c8f560;
+  --primary-foreground: #11150c;
+  --secondary: #171b1f;
+  --secondary-foreground: #eff3ef;
+  --muted: #171b1f;
+  --muted-foreground: #87908b;
+  --accent: #22282d;
+  --accent-foreground: #eff3ef;
+  --destructive: #ff6b4a;
+  --border: #ffffff14;
+  --input: #ffffff1f;
+  --ring: #c8f560;
+  --radius: 0.8rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 5px);
+  --font-sans: "Segoe UI Variable", "Segoe UI", Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--background); }
+body { margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-sans); text-rendering: optimizeLegibility; }
+button { cursor: pointer; }
+button:disabled { cursor: wait; }
+
+.mesh-bg {
+  background-image:
+    radial-gradient(circle at 52% 45%, rgba(200, 245, 96, 0.055), transparent 27%),
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: auto, 38px 38px, 38px 38px;
+  mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
+}
+
+.route-dot { filter: drop-shadow(0 0 9px #c8f560); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+}
