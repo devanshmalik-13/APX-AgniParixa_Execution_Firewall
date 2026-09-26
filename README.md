@@ -2,6 +2,16 @@
 
 AgentShield is a runtime security boundary for tool-using AI agents. It assumes the model can be manipulated and evaluates every consequential tool request against a trusted task definition before execution.
 
+## Hackathon build and AI disclosure
+
+This project was started from zero during the hackathon on 26 September 2026. It is not a reskin or continuation of an existing project.
+
+OpenAI Codex with the GPT-6 Sol model was used as an AI coding assistant for research, project scaffolding, implementation, interface design, tests, security evaluation fixtures, and documentation. The team supplied the product direction, requirements, security decisions, and review feedback. The initial framework scaffold was created during the event through the Codex Sites workflow and then replaced with the AgentShield implementation.
+
+Open-source dependencies include React, Vinext/Next-compatible tooling, Tailwind CSS, Lucide React, Radix UI, and the testing/build packages declared in `package.json` and `package-lock.json`.
+
+All identities, messages, customer records, secrets, tools, recipients, and attacks are synthetic. Security testing is restricted to this repository's mock sandbox. The demonstration does not access real personal, patient, organizational, or third-party data.
+
 The included demo replays three attacks against a fictional workplace assistant:
 
 1. Indirect prompt injection leading to secret exfiltration.
