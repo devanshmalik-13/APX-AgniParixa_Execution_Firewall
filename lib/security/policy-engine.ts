@@ -22,6 +22,16 @@ export const defaultPolicy: PolicyOptions = {
   blockRiskThreshold: 65,
 };
 
+function canonicalPosixPath(value: string): string {
+  const segments: string[] = [];
+  for (const segment of value.replaceAll("\\", "/").split("/")) {
+    if (!segment || segment === ".") continue;
+    if (segment === "..") segments.pop();
+    else segments.push(segment);
+  }
+  return `/${segments.join("/")}`;
+}
+
 function outsideAllowedDestinations(destination: string | undefined, allowed: string[]): boolean {
   if (!destination) return false;
   return !allowed.some((entry) => destination === entry || destination.endsWith(`@${entry}`));
@@ -39,6 +49,65 @@ export function evaluateAction(
   const secretMatches = scanForSecrets(action.content);
   const externalDestination = outsideAllowedDestinations(action.destination, task.allowedDestinations);
   const novelty = detectBehaviorNovelty(task, action);
+
+  if (task.expiresAt && Date.parse(task.expiresAt) <= Date.now()) {
+    findings.push({
+      id: "capability-expired",
+      title: "Capability passport has expired",
+      description: "Expired task authority cannot be reused or replayed.",
+      severity: "critical",
+      score: 100,
+      hardBlock: true,
+      evidence: { expiresAt: task.expiresAt },
+    });
+  }
+
+  if (action.tool === "filesystem") {
+    const rawPath = typeof action.arguments.path === "string" ? action.arguments.path : "";
+    let resolvedPath = "invalid";
+    try {
+      resolvedPath = canonicalPosixPath(decodeURIComponent(rawPath));
+    } catch {
+      // Malformed encodings are rejected below.
+    }
+    const root = canonicalPosixPath(task.filesystem?.root ?? "/workspace");
+    const insideRoot = resolvedPath === root || resolvedPath.startsWith(`${root}/`);
+    const protectedName = /(?:^|\/)\.(?:env|ssh)(?:\/|$)|credentials?|private[_-]?key|audit|policy/i.test(resolvedPath);
+    if (!insideRoot || protectedName || rawPath.includes("\0")) {
+      findings.push({
+        id: "filesystem-boundary",
+        title: "Filesystem sandbox boundary violated",
+        description: "The canonical path escapes the task workspace or targets a protected security file.",
+        severity: "critical",
+        score: 100,
+        hardBlock: true,
+        evidence: { requestedPath: rawPath, canonicalPath: resolvedPath, sandboxRoot: root },
+      });
+    }
+  }
+
+  if (action.tool === "database") {
+    const table = String(action.arguments.table ?? "");
+    const columns = Array.isArray(action.arguments.columns) ? action.arguments.columns.map(String) : [];
+    const tenantId = String(action.arguments.tenantId ?? "");
+    const limit = Number(action.arguments.limit ?? 0);
+    const allowedColumns = task.database?.tables[table];
+    const invalidScope = !allowedColumns || columns.length === 0 || columns.some((column) => !allowedColumns.includes(column));
+    const crossTenant = Boolean(task.tenantId) && tenantId !== task.tenantId;
+    const excessiveRows = Boolean(task.database) && (!Number.isInteger(limit) || limit < 1 || limit > task.database!.maxRows);
+    const destructive = !task.database?.operations.includes(action.operation as "select" | "insert" | "update");
+    if (invalidScope || crossTenant || excessiveRows || destructive) {
+      findings.push({
+        id: "database-boundary",
+        title: "Database capability scope violated",
+        description: "The structured query exceeds its table, column, tenant, operation, or row-level grant.",
+        severity: "critical",
+        score: 100,
+        hardBlock: true,
+        evidence: { table, columns, tenantId, expectedTenant: task.tenantId, limit, invalidScope, crossTenant, excessiveRows, destructive },
+      });
+    }
+  }
 
   if (!task.allowedTools.includes(action.tool)) {
     findings.push({
@@ -95,7 +164,9 @@ export function evaluateAction(
       title: "External destination requires approval",
       description: `${action.destination} is not in the task allowlist.`,
       severity: "medium",
-      score: 20,
+      // Unknown egress must never execute silently. Keep the score at the
+      // approval threshold even when content inspection finds no secret.
+      score: 40,
       hardBlock: false,
       evidence: { destination: action.destination, allowedDestinations: task.allowedDestinations },
     });

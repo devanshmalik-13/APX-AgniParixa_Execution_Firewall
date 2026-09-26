@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { evaluateAction } from "../lib/security/policy-engine.ts";
-import { attackScenarios, demoTask } from "../lib/security/scenarios.ts";
-import { scanForSecrets } from "../lib/security/secret-scanner.ts";
+import { evaluateAction } from "../lib/security/policy-engine";
+import { attackScenarios, demoTask } from "../lib/security/scenarios";
+import { scanForSecrets } from "../lib/security/secret-scanner";
+import { executeTool } from "../lib/security/connectors";
+import type { ActionRequest } from "../lib/security/types";
 
 test("enforce mode blocks indirect injection with sensitive egress", () => {
   const scenario = attackScenarios.find((item) => item.id === "indirect-injection");
@@ -92,4 +94,63 @@ test("secret scanner finds direct and base64-encoded secrets", () => {
 
   assert.ok(matches.some((match) => match.type === "api_key"));
   assert.ok(matches.some((match) => match.type === "encoded_secret"));
+});
+
+test("secret scanner finds the documented ROT13-like secret phrase", () => {
+  const matches = scanForSecrets("The encoded blue phrase is: oyhr cuenfr sebz lrfgreqnl");
+  assert.ok(matches.some((match) => match.type === "encoded_secret"));
+});
+
+test("unknown external destinations require approval even without a detected secret", () => {
+  const result = evaluateAction(demoTask, {
+    id: "external-egress-approval",
+    tool: "send_email",
+    operation: "send",
+    arguments: { recipient: "new@outside.test" },
+    destination: "new@outside.test",
+    content: "Routine-looking content",
+    taskRelevance: 0.9,
+    requestedBy: [{ sourceId: "user", sourceType: "user_prompt", trust: "user", sensitivity: "public" }],
+  }, "enforce");
+
+  assert.equal(result.decision, "approval_required");
+});
+
+test("canonical path enforcement blocks traversal before filesystem dispatch", () => {
+  const scenario = attackScenarios.find((item) => item.id === "filesystem-escape");
+  assert.ok(scenario);
+  const result = evaluateAction(demoTask, scenario.action, "enforce");
+  assert.equal(result.decision, "block");
+  assert.ok(result.findings.some((finding) => finding.id === "filesystem-boundary" && finding.hardBlock));
+});
+
+test("database passport blocks cross-tenant reads", () => {
+  const scenario = attackScenarios.find((item) => item.id === "cross-tenant-query");
+  assert.ok(scenario);
+  const result = evaluateAction(demoTask, scenario.action, "enforce");
+  assert.equal(result.decision, "block");
+  assert.ok(result.findings.some((finding) => finding.id === "database-boundary"));
+});
+
+test("scoped database connector returns only the current tenant", () => {
+  const action: ActionRequest = {
+    id: "legitimate-database-001",
+    tool: "database",
+    operation: "select",
+    arguments: { table: "customers", columns: ["id", "plan", "billing_status"], tenantId: "velloe-demo", limit: 2 },
+    content: "Look up the current billing status for this tenant.",
+    taskRelevance: 0.96,
+    requestedBy: [{ sourceId: "support-agent", sourceType: "user_prompt", trust: "user", sensitivity: "internal" }],
+  };
+  const evaluation = evaluateAction(demoTask, action, "enforce");
+  assert.equal(evaluation.decision, "allow");
+  const execution = executeTool(demoTask, action);
+  assert.equal(execution.executed, true);
+  assert.deepEqual((execution.output as { rows: Array<{ id: string }> }).rows.map((row) => row.id), ["cus_42"]);
+});
+
+test("filesystem connector rejects sandbox escape even if called directly", () => {
+  const scenario = attackScenarios.find((item) => item.id === "filesystem-escape");
+  assert.ok(scenario);
+  assert.throws(() => executeTool(demoTask, scenario.action), /Sandbox escape rejected/);
 });

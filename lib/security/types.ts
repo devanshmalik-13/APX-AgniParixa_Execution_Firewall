@@ -9,6 +9,17 @@ export interface TaskContext {
   allowedTools: string[];
   allowedData: string[];
   allowedDestinations: string[];
+  tenantId?: string;
+  expiresAt?: string;
+  filesystem?: {
+    root: string;
+    operations: Array<"read" | "list" | "write">;
+  };
+  database?: {
+    tables: Record<string, string[]>;
+    operations: Array<"select" | "insert" | "update">;
+    maxRows: number;
+  };
 }
 
 export interface DataLineage {
@@ -55,4 +66,34 @@ export interface EvaluationResult {
   task: TaskContext;
   mode: EnforcementMode;
   evaluatedAt: string;
+}
+
+export interface ToolExecutionResult {
+  executed: boolean;
+  tool: string;
+  operation: string;
+  output?: unknown;
+  safeAlternative?: string;
+}
+
+export interface AuditReceipt {
+  id: string;
+  sequence: number;
+  previousHash: string;
+  hash: string;
+  timestamp: string;
+  taskId: string;
+  actionId: string;
+  decision: Decision;
+  riskScore: number;
+  policyIds: string[];
+  executed: boolean;
+}
+
+export interface GatewayResponse {
+  evaluation: EvaluationResult;
+  execution: ToolExecutionResult;
+  receipt: AuditReceipt;
+  latencyMs: number;
+  promptId: string;
 }

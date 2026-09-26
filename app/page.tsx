@@ -2,7 +2,6 @@
 
 import {
   Activity,
-  ChevronDown,
   Database,
   FileWarning,
   LockKeyhole,
@@ -13,6 +12,8 @@ import {
   Sparkles,
   TimerReset,
   Zap,
+  History,
+  FlaskConical,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -24,8 +25,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { evaluateAction } from "@/lib/security/policy-engine";
-import { runEvaluation } from "@/lib/security/evaluation";
+import { evaluationCases } from "@/lib/security/evaluation";
 import { attackScenarios, demoTask } from "@/lib/security/scenarios";
+import type { GatewayResponse, ToolExecutionResult } from "@/lib/security/types";
+import type { PromptRecord, StoredRun } from "@/lib/security/run-store";
 
 type Mode = "unprotected" | "observe" | "enforce";
 
@@ -36,26 +39,40 @@ const scenarioTitles: Record<string, string> = {
   "unknown-behavior": "Unrecognized behavior drift",
   "tool-escalation": "Forbidden capability attempt",
   "goal-hijack": "Off-task objective detected",
+  "filesystem-escape": "Filesystem sandbox escape",
+  "cross-tenant-query": "Cross-tenant data access",
 };
 
 type AnalystDecision = "pending" | "contained" | "safe";
+type AuditData = {
+  prompts: PromptRecord[];
+  runs: StoredRun[];
+  metrics: { attempts: number; attacks: number; contained: number; defenseRate: number | null; legitimate: number; falsePositives: number; falsePositiveRate: number | null };
+};
 
 export default function Home() {
   const [mode, setMode] = useState<Mode>("enforce");
   const [scenarioId, setScenarioId] = useState(attackScenarios[0].id);
   const [running, setRunning] = useState(false);
   const [analystDecision, setAnalystDecision] = useState<AnalystDecision>("pending");
+  const [gatewayResponse, setGatewayResponse] = useState<GatewayResponse | null>(null);
+  const [gatewayError, setGatewayError] = useState("");
+  const [promptText, setPromptText] = useState(attackScenarios[0].prompt);
+  const [payloadText, setPayloadText] = useState(() => JSON.stringify(attackScenarios[0].action, null, 2));
+  const [auditData, setAuditData] = useState<AuditData | null>(null);
+  const [suiteRunning, setSuiteRunning] = useState(false);
+  const [suiteError, setSuiteError] = useState("");
   const incidentPanelRef = useRef<HTMLElement>(null);
-  const benchmark = useMemo(() => runEvaluation(), []);
   const scenario = attackScenarios.find((item) => item.id === scenarioId) ?? attackScenarios[0];
-  const evaluation = useMemo(() => evaluateAction(demoTask, scenario.action, mode), [mode, scenario]);
+  const previewEvaluation = useMemo(() => evaluateAction(demoTask, scenario.action, mode), [mode, scenario]);
+  const evaluation = gatewayResponse?.evaluation ?? previewEvaluation;
   const decision = {
     label: evaluation.decision === "block" ? "Blocked" : evaluation.decision === "observe" ? "Observed" : evaluation.decision === "approval_required" ? "Approval required" : "Allowed",
     risk: evaluation.riskScore,
     copy: mode === "unprotected" ? "Protection disabled" : `${evaluation.findings.length} policy ${evaluation.findings.length === 1 ? "violation" : "violations"}`,
   };
-  const events = evaluation.findings.slice(0, 3).map((finding, index) => ({
-    time: `10:42:08.${117 + index * 211}`,
+  const events = evaluation.findings.slice(0, 3).map((finding) => ({
+    time: gatewayResponse ? new Date(evaluation.evaluatedAt).toLocaleTimeString([], { hour12: false }) : "preview",
     title: finding.title,
     detail: Object.values(finding.evidence).flat().slice(0, 2).join(" · ") || finding.description,
     tone: finding.severity === "critical" ? "red" : "amber",
@@ -65,20 +82,108 @@ export default function Home() {
   const isGoalHijack = scenario.id === "goal-hijack";
   const noveltyFinding = evaluation.findings.find((finding) => finding.id === "novel-behavior");
   const requiresReview = evaluation.decision === "approval_required";
-  const responseCopy = requiresReview
-    ? "Keep this session isolated while an analyst reviews the new execution pattern."
+  const responseCopy = mode === "unprotected"
+    ? "Policy findings are recorded, but this mode lets the mock tool call continue for comparison."
+    : requiresReview
+    ? analystDecision === "safe"
+      ? "The analyst allowed this exact action once; the decision and execution result are recorded."
+      : analystDecision === "contained"
+        ? "The analyst kept this action isolated. No tool execution followed."
+        : "Keep this session isolated while an analyst reviews the new execution pattern."
     : evaluation.decision === "block"
       ? "No approval needed. The gateway stopped the action and preserved the evidence automatically."
       : "No analyst action needed. The event remains searchable in the audit trail.";
 
+  async function refreshAudit() {
+    const response = await fetch("/api/audit", { cache: "no-store" });
+    if (!response.ok) throw new Error("Stored prompt logs are temporarily unavailable.");
+    setAuditData(await response.json() as AuditData);
+  }
+
+  useEffect(() => { void refreshAudit().catch(() => setSuiteError("Prompt history is unavailable; check the audit database.")); }, []);
+
   useEffect(() => {
-    setAnalystDecision("pending");
     incidentPanelRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [scenarioId, mode]);
 
-  function runAttack() {
+  function selectScenario(id: string) {
+    const next = attackScenarios.find((item) => item.id === id) ?? attackScenarios[0];
+    setScenarioId(id);
+    setAnalystDecision("pending");
+    setGatewayResponse(null);
+    setGatewayError("");
+    setPromptText(next.prompt);
+    setPayloadText(JSON.stringify(next.action, null, 2));
+  }
+
+  function selectMode(nextMode: Mode) {
+    setMode(nextMode);
+    setAnalystDecision("pending");
+    setGatewayResponse(null);
+    setGatewayError("");
+  }
+
+  async function submitToGateway(action = scenario.action) {
     setRunning(true);
-    window.setTimeout(() => setRunning(false), 2300);
+    setGatewayError("");
+    setAnalystDecision("pending");
+    try {
+      const response = await fetch("/api/gateway", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mode, prompt: promptText, scenarioId: scenario.id, action }),
+      });
+      const result = await response.json() as GatewayResponse & { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Gateway rejected the request envelope.");
+      setGatewayResponse(result as GatewayResponse);
+      await refreshAudit();
+    } catch (error) {
+      setGatewayError(error instanceof Error ? error.message : "Gateway request failed.");
+    } finally {
+      window.setTimeout(() => setRunning(false), 850);
+    }
+  }
+
+  async function runCustomPayload() {
+    try {
+      await submitToGateway(JSON.parse(payloadText));
+    } catch {
+      setGatewayError("The action editor must contain valid JSON.");
+    }
+  }
+
+  async function runSuite() {
+    setSuiteRunning(true);
+    setSuiteError("");
+    try {
+      const response = await fetch("/api/benchmark", { method: "POST" });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Test bench failed.");
+      await refreshAudit();
+    } catch (error) {
+      setSuiteError(error instanceof Error ? error.message : "Test bench failed.");
+    } finally {
+      setSuiteRunning(false);
+    }
+  }
+
+  async function resolveReview(verdict: "contained" | "safe") {
+    if (!gatewayResponse) return;
+    try {
+      const response = await fetch("/api/audit", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ runId: gatewayResponse.receipt.id, verdict }),
+      });
+      const result = await response.json() as { updated?: boolean; reason?: string; error?: string; execution?: ToolExecutionResult };
+      if (!response.ok) throw new Error(result.reason ?? result.error ?? "Review could not be saved.");
+      setAnalystDecision(verdict);
+      const execution = result.execution;
+      if (execution) setGatewayResponse((current) => current ? { ...current, execution } : current);
+      await refreshAudit();
+    } catch (error) {
+      setGatewayError(error instanceof Error ? error.message : "Review could not be saved.");
+    }
   }
 
   return (
@@ -94,18 +199,18 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="hidden items-center gap-3 xl:flex">
-          <div className="flex items-center gap-2 rounded-full border border-[#c8f560]/15 bg-[#c8f560]/[0.045] px-3 py-2 text-[11px] text-white/55">
+        <div className="hidden items-center gap-3 md:flex">
+          <div className="hidden items-center gap-2 rounded-full border border-[#c8f560]/15 bg-[#c8f560]/[0.045] px-3 py-2 text-[11px] text-white/55 xl:flex">
             <Zap className="size-3.5 text-[#c8f560]" />
-            <span><b className="font-semibold text-white/80">97.8%</b> auto-handled</span>
+            <span><b className="font-semibold text-white/80">{auditData?.metrics.attacks ? `${auditData.metrics.contained}/${auditData.metrics.attacks}` : "—"}</b> attacks contained</span>
             <span className="text-white/20">·</span>
-            <span><b className="font-semibold text-[#f4b860]">3</b> need review</span>
+            <span><b className="font-semibold text-[#f4b860]">{auditData?.metrics.legitimate ? auditData.metrics.falsePositives : "—"}</b> measured false positives</span>
           </div>
           <div className="flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.035] p-1">
           {(["unprotected", "observe", "enforce"] as Mode[]).map((item) => (
             <button
               key={item}
-              onClick={() => setMode(item)}
+              onClick={() => selectMode(item)}
               className={`rounded-full px-4 py-2 text-xs font-medium capitalize transition-all ${mode === item ? "bg-white/[0.11] text-white shadow-sm" : "text-white/40 hover:text-white/70"}`}
             >
               {item}
@@ -114,28 +219,27 @@ export default function Home() {
           </div>
         </div>
 
-        <button className="flex items-center gap-2 rounded-full border border-white/[0.1] bg-white/[0.045] px-3 py-2 text-xs text-white/65">
+        <div className="flex items-center gap-2 rounded-full border border-white/[0.1] bg-white/[0.045] px-3 py-2 text-xs text-white/65">
           <span className="size-1.5 rounded-full bg-[#c8f560] shadow-[0_0_8px_#c8f560]" />
-          Nova online
-          <ChevronDown className="size-3.5" />
-        </button>
+          Demo sandbox
+        </div>
       </header>
 
       <section className="mx-auto grid w-full max-w-[1600px] grid-cols-1 gap-4 p-4 lg:h-[calc(100vh-72px)] lg:grid-cols-[minmax(0,1fr)_360px] lg:p-5">
         <div className="relative min-h-[640px] overflow-hidden rounded-[26px] border border-white/[0.08] bg-[#0b0e11] lg:min-h-0">
           <div className="mesh-bg absolute inset-0 opacity-70" />
           <div className="absolute left-5 right-5 top-5 z-20 flex items-start justify-between md:left-7 md:right-7 md:top-7">
-            <div>
+            <div className="min-w-0 flex-1 pr-3">
               <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">
-                <Activity className="size-3.5" /> Live execution trace
+                <Activity className="size-3.5" /> {gatewayResponse ? "Recorded execution trace" : "Execution preview"}
               </div>
               <h1 className="max-w-xl text-[clamp(1.65rem,3vw,2.7rem)] font-medium leading-[1.05] tracking-[-0.045em]">Trace the intent.<br />Stop the impact.</h1>
-              <div className="mt-4 flex max-w-[78vw] gap-2 overflow-x-auto pb-1 sm:flex-wrap">
+              <div className="soc-scrollbar mt-4 flex max-w-full gap-2 overflow-x-auto whitespace-nowrap pb-2">
                 {attackScenarios.map((item, index) => (
                   <button
                     key={item.id}
-                    onClick={() => setScenarioId(item.id)}
-                    className={`rounded-full border px-3 py-1.5 text-[11px] transition ${scenarioId === item.id ? "border-[#c8f560]/35 bg-[#c8f560]/10 text-[#d9ff77]" : "border-white/[0.08] bg-black/20 text-white/38 hover:text-white/65"}`}
+                    onClick={() => selectScenario(item.id)}
+                    className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] transition ${scenarioId === item.id ? "border-[#c8f560]/35 bg-[#c8f560]/10 text-[#d9ff77]" : "border-white/[0.08] bg-black/20 text-white/38 hover:text-white/65"}`}
                   >
                     0{index + 1} · {item.name}
                   </button>
@@ -143,12 +247,12 @@ export default function Home() {
               </div>
             </div>
             <button
-              onClick={runAttack}
+              onClick={() => submitToGateway()}
               disabled={running}
-              className="group flex items-center gap-2 rounded-full bg-[#c8f560] px-4 py-2.5 text-xs font-semibold text-[#11150c] transition hover:bg-[#d9ff77] disabled:opacity-65 md:px-5 md:py-3"
+              className="group flex shrink-0 items-center gap-2 self-start rounded-full bg-[#c8f560] px-4 py-2.5 text-xs font-semibold text-[#11150c] transition hover:bg-[#d9ff77] disabled:opacity-65 md:px-5 md:py-3"
             >
               <Play className={`size-3.5 fill-current ${running ? "animate-pulse" : ""}`} />
-              {running ? "Replaying" : "Replay attack"}
+              {running ? "Enforcing…" : "Run attack"}
             </button>
           </div>
 
@@ -174,7 +278,7 @@ export default function Home() {
             <TraceNode icon={isUnknown ? <Radar /> : isToolEscalation ? <LockKeyhole /> : <FileWarning />} label={isUnknown ? "Agent session" : isGoalHijack ? "User request" : isToolEscalation ? "Injected request" : scenarioId === "memory-poisoning" ? "Poisoned invoice" : scenarioId === "loop-exhaustion" ? "Tool response" : "Support ticket"} meta={isUnknown ? "No signature match" : isGoalHijack ? "Outside assigned goal" : "Untrusted source"} className="left-[12%] top-[37%]" state="warning" />
             <TraceNode icon={<Sparkles />} label="Nova agent" meta="Task: summarize ticket" className="left-[31%] top-[13%]" state="active" />
             <TraceNode icon={isToolEscalation ? <LockKeyhole /> : <Database />} label={isUnknown ? "Context bundler" : isGoalHijack ? "Goal boundary" : isToolEscalation ? "Shell tool" : scenarioId === "memory-poisoning" ? "Agent memory" : scenarioId === "loop-exhaustion" ? "Iteration 9" : "Customer DB"} meta={isUnknown ? "Unseen tool sequence" : isGoalHijack ? "6% task relevance" : isToolEscalation ? "Not in capability set" : scenarioId === "loop-exhaustion" ? "Budget exceeded" : "Protected resource"} className="left-[57%] top-[37%]" state="warning" />
-            <TraceNode icon={<Mail />} label={isUnknown ? "Approval gate" : isGoalHijack ? "Policy gateway" : isToolEscalation ? "Execution boundary" : scenarioId === "memory-poisoning" ? "Trust policy" : scenarioId === "loop-exhaustion" ? "Next tool call" : "External email"} meta={analystDecision === "contained" ? "Contained by analyst" : requiresReview ? "Awaiting analyst" : evaluation.decision === "block" ? "Auto-contained" : "Action continued"} className="left-[79%] top-[62%]" state={evaluation.decision === "block" || analystDecision === "contained" ? "blocked" : "warning"} />
+            <TraceNode icon={<Mail />} label={isUnknown ? "Approval gate" : isGoalHijack ? "Policy gateway" : isToolEscalation ? "Execution boundary" : scenarioId === "memory-poisoning" ? "Trust policy" : scenarioId === "loop-exhaustion" ? "Next tool call" : "External email"} meta={analystDecision === "contained" ? "Contained by analyst" : analystDecision === "safe" ? "Approved once" : requiresReview ? "Awaiting analyst" : evaluation.decision === "block" ? "Auto-contained" : "Action continued"} className="left-[79%] top-[62%]" state={evaluation.decision === "block" || analystDecision === "contained" ? "blocked" : analystDecision === "safe" ? "active" : "warning"} />
 
             <div className="absolute left-[53%] top-[10%] hidden w-[206px] rounded-2xl border border-white/[0.08] bg-[#101418]/90 p-4 shadow-2xl backdrop-blur-xl md:block">
               <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30">{isUnknown ? "Behavior drift" : isToolEscalation ? "Capability check" : "Task boundary"}</div>
@@ -203,6 +307,9 @@ export default function Home() {
         </div>
 
         <aside ref={incidentPanelRef} className="soc-scrollbar flex min-h-[640px] flex-col overflow-x-hidden overflow-y-auto rounded-[26px] border border-white/[0.08] bg-[#0b0e11] p-5 lg:min-h-0">
+          <div className="mb-5 flex items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.035] p-1 md:hidden">
+            {(["unprotected", "observe", "enforce"] as Mode[]).map((item) => <button key={item} onClick={() => selectMode(item)} className={`flex-1 rounded-full px-2 py-2 text-[11px] font-medium capitalize ${mode === item ? "bg-white/[0.11] text-white" : "text-white/40"}`}>{item}</button>)}
+          </div>
           <div className="flex items-center justify-between">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/30">Incident</div>
@@ -219,9 +326,33 @@ export default function Home() {
             <p className="text-sm leading-relaxed text-white/78">Summarize the customer&apos;s billing issue and draft an internal response.</p>
           </div>
 
+          <div className="mt-4 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <label htmlFor="attack-prompt" className="text-[11px] font-medium text-white/60">Prompt / untrusted content</label>
+              <span className="text-[10px] text-white/30">Stored verbatim on submit</span>
+            </div>
+            <textarea id="attack-prompt" value={promptText} onChange={(event) => setPromptText(event.target.value)} maxLength={10_000} spellCheck={false} className="soc-scrollbar min-h-24 w-full resize-y rounded-xl border border-white/[0.07] bg-black/20 p-3 text-xs leading-relaxed text-white/75 outline-none focus:border-[#c8f560]/35" />
+            <p className="mt-2 text-[10px] leading-relaxed text-white/35">Synthetic sandbox data only. Edit this text and the action envelope to test your own attempt.</p>
+          </div>
+
           <div className="mt-7 flex items-center justify-between">
             <h3 className="text-sm font-medium">Evidence trail</h3>
-            <span className="text-[11px] text-white/30">{events.length} {events.length === 1 ? "event" : "events"} · 575ms</span>
+            <span className="text-[11px] text-white/30">{events.length} {events.length === 1 ? "event" : "events"} · {gatewayResponse?.latencyMs ?? "—"}ms</span>
+          </div>
+
+          {gatewayError && <div className="mt-4 rounded-xl border border-[#ff6b4a]/20 bg-[#ff6b4a]/[0.06] p-3 text-xs text-[#ff8064]">{gatewayError}</div>}
+
+          <div className="mt-5 rounded-2xl border border-[#9fb8ff]/15 bg-[#9fb8ff]/[0.035] p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#adc2ff]">Capability passport</span>
+              <span className="rounded-full border border-[#9fb8ff]/15 px-2 py-1 font-mono text-[9px] text-[#adc2ff]/70">SERVER SCOPE</span>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-[10px]">
+              <div><span className="block text-white/28">Tenant</span><b className="mt-0.5 block font-mono font-medium text-white/65">{demoTask.tenantId}</b></div>
+              <div><span className="block text-white/28">Proposed tool</span><b className="mt-0.5 block font-mono font-medium text-white/65">{scenario.action.tool}</b></div>
+              <div><span className="block text-white/28">Data scope</span><b className="mt-0.5 block font-mono font-medium text-white/65">task-bound</b></div>
+              <div><span className="block text-white/28">Expiry</span><b className="mt-0.5 block font-mono font-medium text-white/65">single run</b></div>
+            </div>
           </div>
 
           <div className="mt-4 flex-1">
@@ -242,8 +373,8 @@ export default function Home() {
 
           <div className={`mt-5 rounded-2xl border p-4 ${requiresReview ? "border-[#f4b860]/20 bg-[#f4b860]/[0.04]" : "border-[#c8f560]/15 bg-[#c8f560]/[0.035]"}`}>
             <div className="flex items-center justify-between">
-              <div className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${requiresReview ? "text-[#f4b860]" : "text-[#c8f560]/70"}`}>{requiresReview ? "Analyst decision needed" : "Automatically resolved"}</div>
-              <span className="rounded-full bg-white/[0.05] px-2 py-1 text-[9px] text-white/35">{requiresReview ? "Novel · ambiguous" : "Deterministic policy"}</span>
+              <div className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${mode === "unprotected" || requiresReview && analystDecision === "pending" ? "text-[#f4b860]" : "text-[#c8f560]/70"}`}>{mode === "unprotected" ? "Policy bypass mode" : requiresReview ? analystDecision === "pending" ? "Analyst decision needed" : "Analyst decision recorded" : "Automatically resolved"}</div>
+              <span className="rounded-full bg-white/[0.05] px-2 py-1 text-[9px] text-white/35">{mode === "unprotected" ? "Sandbox only" : requiresReview ? "Novel · ambiguous" : "Deterministic policy"}</span>
             </div>
             <p className="mt-2 text-[13px] font-medium leading-relaxed text-white/80">
               {responseCopy}
@@ -256,17 +387,17 @@ export default function Home() {
                   <span><b className="block text-white/70">No new data</b>same scope</span>
                 </div>
                 <div className="mt-3 flex gap-2">
-                  <button onClick={() => setAnalystDecision("contained")} className={`flex-1 rounded-xl px-3 py-2.5 text-[11px] font-semibold transition ${analystDecision === "contained" ? "bg-[#c8f560]/15 text-[#c8f560]" : "bg-[#c8f560] text-[#11150c] hover:bg-[#d9ff77]"}`}>
+                  <button onClick={() => resolveReview("contained")} disabled={!gatewayResponse || analystDecision !== "pending"} className={`flex-1 rounded-xl px-3 py-2.5 text-[11px] font-semibold transition disabled:opacity-45 ${analystDecision === "contained" ? "bg-[#c8f560]/15 text-[#c8f560]" : "bg-[#c8f560] text-[#11150c] hover:bg-[#d9ff77]"}`}>
                     {analystDecision === "contained" ? "Session kept isolated" : "Keep isolated"}
                   </button>
-                  <button onClick={() => setAnalystDecision("safe")} className="rounded-xl border border-white/[0.09] px-3 py-2.5 text-[11px] text-white/55 transition hover:bg-white/[0.05]">
+                  <button onClick={() => resolveReview("safe")} disabled={!gatewayResponse || analystDecision !== "pending"} className="rounded-xl border border-white/[0.09] px-3 py-2.5 text-[11px] text-white/55 transition hover:bg-white/[0.05] disabled:opacity-45">
                     {analystDecision === "safe" ? "Approved once" : "Approve once"}
                   </button>
                 </div>
               </>
             ) : (
               <div className="mt-3 flex items-center gap-2 rounded-xl border border-white/[0.06] bg-black/15 px-3 py-2.5 text-[10px] text-white/40">
-                <ShieldCheck className="size-3.5 text-[#c8f560]" /> Policy applied · execution stopped · audit sealed
+                <ShieldCheck className="size-3.5 text-[#c8f560]" /> {mode === "unprotected" ? "Policy bypassed" : "Policy applied"} · {gatewayResponse ? (gatewayResponse.execution.executed ? "mock tool executed" : "execution stopped") : "awaiting run"} · audit {gatewayResponse ? "stored" : "pending"}
               </div>
             )}
             <div className="mt-3 flex items-center gap-3 text-[9px] text-white/30">
@@ -276,27 +407,57 @@ export default function Home() {
 
           <div className="mt-6 border-t border-white/[0.07] pt-5">
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-xs text-white/38">Security posture</span>
-              <span className="text-xs font-medium text-[#c8f560]">Measured locally</span>
+              <span className="text-xs text-white/38">Recorded test bench</span>
+              <span className="text-xs font-medium text-[#c8f560]">{auditData?.metrics.attempts ?? 0} stored runs</span>
             </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-              <div className="h-full rounded-full bg-gradient-to-r from-[#6a812f] to-[#c8f560]" style={{ width: `${benchmark.defenseRate * 100}%` }} />
+              <div className="h-full rounded-full bg-gradient-to-r from-[#6a812f] to-[#c8f560]" style={{ width: `${(auditData?.metrics.defenseRate ?? 0) * 100}%` }} />
               </div>
             <div className="mt-3 grid grid-cols-3 gap-2">
-              <Metric value={`${Math.round(benchmark.defenseRate * 1000) / 10}%`} label="Defense rate" />
-              <Metric value={String(benchmark.bypasses)} label="Known bypass" tone="amber" />
-              <Metric value={`${Math.round(benchmark.falsePositiveRate * 100)}%`} label="False positive" tone="amber" />
+              <Metric value={auditData?.metrics.attacks ? `${Math.round((auditData.metrics.defenseRate ?? 0) * 1000) / 10}%` : "—"} label="Attack containment" />
+              <Metric value={auditData?.metrics.attacks ? String(auditData.metrics.attacks - auditData.metrics.contained) : "—"} label="Misses" tone="amber" />
+              <Metric value={auditData?.metrics.legitimate ? `${Math.round((auditData.metrics.falsePositiveRate ?? 0) * 100)}%` : "—"} label="False positives" tone="amber" />
             </div>
+            <button onClick={runSuite} disabled={suiteRunning} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#c8f560] px-4 py-3 text-xs font-semibold text-[#11150c] transition hover:bg-[#d9ff77] disabled:opacity-55"><FlaskConical className="size-4" />{suiteRunning ? `Running all ${evaluationCases.length} cases…` : `Run ${evaluationCases.length}-case attack bench`}</button>
+            {suiteError && <p className="mt-2 text-[10px] text-[#ff8064]">{suiteError}</p>}
+            <Dialog>
+              <DialogTrigger asChild><button className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.09] bg-white/[0.04] py-3 text-xs font-medium text-white/72 transition hover:bg-white/[0.07]"><History className="size-3.5" /> Review prompt and run log</button></DialogTrigger>
+              <DialogContent className="max-h-[82vh] overflow-auto border-white/[0.1] bg-[#0d1114] text-white sm:max-w-3xl">
+                <DialogHeader><DialogTitle>Prompt and execution log</DialogTitle><DialogDescription>Stored in the private sandbox database, including rejected prompt submissions. Recent 200 entries shown.</DialogDescription></DialogHeader>
+                <a href="/api/audit/export" download className="inline-flex self-start rounded-lg border border-white/[0.09] bg-white/[0.04] px-3 py-2 text-xs text-[#c8f560] hover:bg-white/[0.07]">Download full JSON log</a>
+                <div className="space-y-2">
+                  {auditData?.prompts.length ? auditData.prompts.map((prompt) => {
+                    const run = auditData.runs.find((item) => item.promptId === prompt.id);
+                    return <div key={prompt.id} className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-3"><div className="flex flex-wrap items-center gap-2 text-[10px] text-white/40"><span className="font-mono">{new Date(prompt.createdAt).toLocaleString()}</span><span className="rounded bg-white/[0.06] px-1.5 py-0.5">{prompt.source}</span><span>{prompt.groundTruth}</span><span className="ml-auto text-[#c8f560]">{run?.decision ?? prompt.status}</span></div><p className="mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-white/70">{prompt.prompt}</p>{prompt.error && <p className="mt-2 text-xs text-[#ff8064]">{prompt.error}</p>}{run && <div className="mt-2 font-mono text-[10px] text-white/35">{run.actionId} · risk {run.riskScore}/100 · tool {run.executed ? "executed" : "held"} · {run.receiptHash.slice(0, 16)}…</div>}</div>;
+                  }) : <p className="rounded-xl border border-white/[0.08] p-6 text-sm text-white/45">No prompts recorded yet. Run a scenario or the full attack bench.</p>}
+                </div>
+              </DialogContent>
+            </Dialog>
             <Dialog>
               <DialogTrigger asChild>
-                <button className="mt-5 w-full rounded-xl border border-white/[0.09] bg-white/[0.04] py-3 text-xs font-medium text-white/72 transition hover:bg-white/[0.07]">Open full audit record</button>
+                <button className="mt-5 w-full rounded-xl border border-white/[0.09] bg-white/[0.04] py-3 text-xs font-medium text-white/72 transition hover:bg-white/[0.07]">Open live action inspector</button>
               </DialogTrigger>
               <DialogContent className="max-h-[82vh] overflow-auto border-white/[0.1] bg-[#0d1114] text-white sm:max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>Audit record · {scenario.action.id}</DialogTitle>
-                  <DialogDescription>Structured evidence captured at the policy boundary.</DialogDescription>
+                  <DialogTitle>Live action inspector · {scenario.action.id}</DialogTitle>
+                  <DialogDescription>Edit the proposed tool call, then submit it to the real server-side gateway.</DialogDescription>
                 </DialogHeader>
-                <pre className="overflow-x-auto rounded-xl border border-white/[0.08] bg-black/30 p-4 text-[11px] leading-relaxed text-white/60">{JSON.stringify(evaluation, null, 2)}</pre>
+                <textarea value={payloadText} onChange={(event) => setPayloadText(event.target.value)} spellCheck={false} className="min-h-64 w-full resize-y rounded-xl border border-white/[0.08] bg-black/30 p-4 font-mono text-[11px] leading-relaxed text-white/65 outline-none focus:border-[#c8f560]/30" />
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-[10px] text-white/35">Try changing a path, tenantId, table, destination, or data lineage.</span>
+                  <button onClick={runCustomPayload} disabled={running} className="shrink-0 rounded-xl bg-[#c8f560] px-4 py-2.5 text-xs font-semibold text-[#11150c] disabled:opacity-50">Evaluate payload</button>
+                </div>
+                {gatewayResponse && (
+                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-4">
+                    <div className="flex items-center justify-between text-xs"><b className="uppercase tracking-wider text-[#c8f560]">Policy receipt</b><span className="font-mono text-white/40">{gatewayResponse.receipt.id}</span></div>
+                    <div className="mt-3 grid grid-cols-3 gap-3 text-[10px] text-white/45"><span><b className="block text-white/80">{gatewayResponse.evaluation.decision}</b>decision</span><span><b className="block text-white/80">{gatewayResponse.evaluation.riskScore}/100</b>risk</span><span><b className="block text-white/80">{String(gatewayResponse.execution.executed)}</b>executed</span></div>
+                    <div className="mt-3 truncate border-t border-white/[0.07] pt-3 font-mono text-[9px] text-white/30">sha256 {gatewayResponse.receipt.hash}</div>
+                    <div className="mt-3 border-t border-white/[0.07] pt-3 text-[10px] uppercase tracking-wider text-white/40">Policy findings</div>
+                    <div className="mt-2 space-y-2">{gatewayResponse.evaluation.findings.length ? gatewayResponse.evaluation.findings.map((finding) => <div key={finding.id} className="rounded-lg border border-white/[0.06] bg-black/20 p-2.5 text-xs"><b className="text-white/75">{finding.title}</b><p className="mt-1 text-white/45">{finding.description}</p></div>) : <p className="text-xs text-[#c8f560]">No policy findings.</p>}</div>
+                    <div className="mt-3 border-t border-white/[0.07] pt-3 text-[10px] uppercase tracking-wider text-white/40">Mock tool result</div>
+                    <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-black/25 p-3 text-[10px] leading-relaxed text-white/55">{JSON.stringify(gatewayResponse.execution.output ?? { status: gatewayResponse.execution.safeAlternative ?? "Held before execution" }, null, 2)}</pre>
+                  </div>
+                )}
               </DialogContent>
             </Dialog>
           </div>

@@ -19,6 +19,17 @@ function possibleBase64Tokens(content: string): string[] {
   return content.match(/\b[A-Za-z0-9+/]{24,}={0,2}\b/g) ?? [];
 }
 
+function rot13(value: string): string {
+  return value.replace(/[a-z]/gi, (character) => {
+    const base = character <= "Z" ? 65 : 97;
+    return String.fromCharCode(((character.charCodeAt(0) - base + 13) % 26) + base);
+  });
+}
+
+function possibleRot13Phrases(content: string): string[] {
+  return content.match(/\b(?:[A-Za-z]{3,}\s+){2,}[A-Za-z]{3,}\b/g) ?? [];
+}
+
 export function scanForSecrets(content = ""): SecretMatch[] {
   const matches: SecretMatch[] = [];
 
@@ -37,6 +48,15 @@ export function scanForSecrets(content = ""): SecretMatch[] {
       }
     } catch {
       // Invalid base64 is not a finding.
+    }
+  }
+
+  // ROT13 is included because it is a documented evaluation bypass. This is a
+  // bounded detector, not a claim that arbitrary semantic encoding is solvable.
+  for (const phrase of possibleRot13Phrases(content)) {
+    const decoded = rot13(phrase);
+    if (/(?:api[_-]?key|secret|password|bearer|private\s+key|blue\s+phrase)/i.test(decoded)) {
+      matches.push({ type: "encoded_secret", preview: redact(phrase) });
     }
   }
 
