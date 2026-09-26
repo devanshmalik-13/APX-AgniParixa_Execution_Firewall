@@ -8,7 +8,7 @@ APX is a SOC decision-support and runtime security boundary for tool-using AI ag
 
 This project was started from zero during the hackathon on 26 September 2026. It is not a reskin or continuation of an existing project.
 
-OpenAI Codex with the GPT-6 Sol model was used as an AI coding assistant for research, project scaffolding, implementation, interface design, tests, security evaluation fixtures, and documentation. The team supplied the product direction, requirements, security decisions, and review feedback. The initial framework scaffold was created during the event through the Codex Sites workflow and then replaced with the AgentShield implementation.
+OpenAI Codex with the GPT-6 Sol model was used as an AI coding assistant for research, project scaffolding, implementation, interface design, tests, security evaluation fixtures, and documentation. The team supplied the product direction, requirements, security decisions, and review feedback. The initial framework scaffold was created during the event through the Codex Sites workflow and then replaced with the APX implementation.
 
 Open-source dependencies include React, Vinext/Next-compatible tooling, Tailwind CSS, Lucide React, Radix UI, and the testing/build packages declared in `package.json` and `package-lock.json`.
 
@@ -29,7 +29,7 @@ The same attack can be run in `unprotected`, `observe`, and `enforce` modes. The
 
 ## What makes this different
 
-AgentShield uses **capability passports**, not a universal prompt-injection classifier. A passport binds the agent action to a task, tenant, tool, operation, data scope, destination, row limit, and expiry. The model can propose anything, but it cannot expand its passport. A request that says “I am an administrator” has no effect on the trusted server-side grant.
+APX uses **capability passports**, not a universal prompt-injection classifier. A passport binds the agent action to a task, tenant, tool, operation, data scope, destination, row limit, and expiry. The model can propose anything, but it cannot expand its passport. A request that says “I am an administrator” has no effect on the trusted server-side grant.
 
 The demo connectors are functional, deliberately small enterprise simulators:
 
@@ -39,7 +39,7 @@ The demo connectors are functional, deliberately small enterprise simulators:
 
 ## Why this is not another prompt filter
 
-Prompt injection does not have a universal text-classification fix. AgentShield therefore controls impact at the tool boundary:
+Prompt injection does not have a universal text-classification fix. APX therefore controls impact at the tool boundary:
 
 - Untrusted retrieved text is data, not authority.
 - Tools are limited by the currently assigned task.
@@ -52,7 +52,7 @@ Prompt injection does not have a universal text-classification fix. AgentShield 
 - Novel-behavior approvals are bound to the original action and expire after five minutes. The analyst can keep the action isolated or allow that exact mock action once.
 - Containment keeps blocked and approval-pending actions from reaching the mock connectors, while retaining the prompt, policy result, and execution record for review.
 
-The model proposes actions. AgentShield makes the authorization decision.
+The model proposes actions. APX makes the authorization decision.
 
 ## Run locally
 
@@ -160,6 +160,6 @@ These references informed the product direction; the policy engine, fixtures, ev
 
 ## Threat model and limitations
 
-See [THREAT_MODEL.md](./THREAT_MODEL.md). AgentShield does not claim to eliminate prompt injection. Model-weight attacks, training-time poisoning, unknown encoding schemes, and tools that operate outside the gateway are out of scope for this prototype.
+See [THREAT_MODEL.md](./THREAT_MODEL.md). APX does not claim to eliminate prompt injection. Model-weight attacks, training-time poisoning, unknown encoding schemes, and tools that operate outside the gateway are out of scope for this prototype.
 
 All data, secrets, recipients, tools, and attacks in this repository are fictional and owned by the demo environment.

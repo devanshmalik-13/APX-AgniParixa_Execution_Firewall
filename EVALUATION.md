@@ -1,7 +1,7 @@
 # Evaluation report
 
 Date: 2026-09-26  
-Policy: default AgentShield policy  
+Policy: default APX policy  
 Mode: enforce  
 Execution: deterministic local fixtures
 
