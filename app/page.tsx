@@ -31,6 +31,7 @@ import type { GatewayResponse, ToolExecutionResult } from "@/lib/security/types"
 import type { PromptRecord, StoredRun } from "@/lib/security/run-store";
 import { attackLevels, actorForScenario, demoActors, promptForLevel, proposeAction, type AttackLevel } from "@/lib/security/attack-lab";
 import { AuditExplorer } from "@/components/audit-explorer";
+import { isExactDemoFixture } from "@/lib/security/demo-fixture";
 
 type Mode = "unprotected" | "observe" | "enforce";
 
@@ -70,12 +71,15 @@ export default function Home() {
   const incidentPanelRef = useRef<HTMLElement>(null);
   const scenario = attackScenarios.find((item) => item.id === scenarioId) ?? attackScenarios[0];
   const proposedAction = useMemo(() => proposeAction(scenarioId, attackLevel, promptText), [scenarioId, attackLevel, promptText]);
-  const previewEvaluation = useMemo(() => evaluateAction(demoTask, proposedAction, mode), [mode, proposedAction]);
+  const stockReplay = useMemo(() => isExactDemoFixture(scenarioId, attackLevel, promptText, proposedAction), [scenarioId, attackLevel, promptText, proposedAction]);
+  const previewMode = stockReplay ? mode : "enforce";
+  const previewEvaluation = useMemo(() => evaluateAction(demoTask, proposedAction, previewMode), [previewMode, proposedAction]);
   const evaluation = gatewayResponse?.evaluation ?? previewEvaluation;
+  const effectiveMode = evaluation.mode;
   const decision = {
-    label: evaluation.decision === "block" ? "Blocked" : evaluation.decision === "observe" ? "Observed" : evaluation.decision === "approval_required" ? "Approval required" : "Allowed",
+    label: evaluation.decision === "block" ? "Blocked" : evaluation.decision === "observe" ? "Observed" : evaluation.decision === "approval_required" ? "Approval required" : effectiveMode === "unprotected" ? "Would execute" : "Allowed",
     risk: evaluation.riskScore,
-    copy: mode === "unprotected" ? "Protection disabled" : `${evaluation.findings.length} policy ${evaluation.findings.length === 1 ? "violation" : "violations"}`,
+    copy: effectiveMode === "unprotected" ? "Protection disabled in this synthetic comparison" : `${evaluation.findings.length} policy ${evaluation.findings.length === 1 ? "violation" : "violations"}`,
   };
   const events = evaluation.findings.slice(0, 3).map((finding) => ({
     time: gatewayResponse ? new Date(evaluation.evaluatedAt).toLocaleTimeString([], { hour12: false }) : "preview",
@@ -88,8 +92,10 @@ export default function Home() {
   const isGoalHijack = scenario.id === "goal-hijack";
   const noveltyFinding = evaluation.findings.find((finding) => finding.id === "novel-behavior");
   const requiresReview = evaluation.decision === "approval_required";
-  const responseCopy = mode === "unprotected"
-    ? "Policy findings are recorded, but this mode lets the mock tool call continue for comparison."
+  const responseCopy = effectiveMode === "unprotected"
+    ? "Policy findings are recorded, but this fixed demo action is simulated as reaching the tool. No real system is touched."
+    : effectiveMode === "observe"
+    ? "The policy records findings without containment. Tool reach is simulated for this fixed demo action."
     : requiresReview
     ? analystDecision === "safe"
       ? "The analyst allowed this exact action once; the decision and execution result are recorded."
@@ -206,7 +212,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#07090b] text-[#eff3ef]">
+    <main className="min-h-screen overflow-x-hidden bg-[#07090b] text-[#eff3ef]">
       <header className="flex h-[72px] items-center justify-between border-b border-white/[0.08] px-5 md:px-8">
         <div className="flex items-center gap-3">
           <div className="grid size-9 place-items-center rounded-xl border border-[#c8f560]/25 bg-[#c8f560]/[0.08]">
@@ -244,38 +250,40 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="mx-auto grid w-full max-w-[1600px] grid-cols-1 gap-4 p-4 lg:h-[calc(100vh-72px)] lg:grid-cols-[minmax(0,1fr)_360px] lg:p-5">
-        <div className="relative min-h-[640px] overflow-hidden rounded-[26px] border border-white/[0.08] bg-[#0b0e11] lg:min-h-0">
+      <section className="mx-auto grid w-full max-w-[1600px] grid-cols-1 gap-4 p-4 lg:min-h-[calc(100vh-72px)] lg:grid-cols-[minmax(0,1fr)_360px] lg:p-5">
+        <div className="relative flex min-h-[780px] flex-col overflow-hidden rounded-[26px] border border-white/[0.08] bg-[#0b0e11]">
           <div className="mesh-bg absolute inset-0 opacity-70" />
-          <div className="absolute left-5 right-5 top-5 z-20 flex items-start justify-between md:left-7 md:right-7 md:top-7">
-            <div className="min-w-0 flex-1 pr-3">
+          <div className="relative z-20 shrink-0 px-5 pt-5 md:px-7 md:pt-7">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
               <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">
                 <Activity className="size-3.5" /> {gatewayResponse ? "Recorded execution trace" : "Execution preview"}
               </div>
               <h1 className="max-w-xl text-[clamp(1.65rem,3vw,2.7rem)] font-medium leading-[1.05] tracking-[-0.045em]">Every AI action<br />must pass through AgniParixa.</h1>
-              <div className="soc-scrollbar mt-4 flex max-w-full gap-2 overflow-x-auto whitespace-nowrap pb-2">
-                {attackScenarios.map((item, index) => (
-                  <button
-                    key={item.id}
-                    onClick={() => selectScenario(item.id)}
-                    className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] transition ${scenarioId === item.id ? "border-[#c8f560]/35 bg-[#c8f560]/10 text-[#d9ff77]" : "border-white/[0.08] bg-black/20 text-white/38 hover:text-white/65"}`}
-                  >
-                    0{index + 1} · {item.name}
-                  </button>
-                ))}
               </div>
-            </div>
             <button
               onClick={() => submitToGateway()}
               disabled={running}
               className="group flex shrink-0 items-center gap-2 self-start rounded-full bg-[#c8f560] px-4 py-2.5 text-xs font-semibold text-[#11150c] transition hover:bg-[#d9ff77] disabled:opacity-65 md:px-5 md:py-3"
             >
               <Play className={`size-3.5 fill-current ${running ? "animate-pulse" : ""}`} />
-              {running ? "Enforcing…" : "Run attack"}
+              {running ? "Running…" : "Run attack"}
             </button>
+            </div>
+            <div className="soc-scrollbar mt-5 flex max-w-full gap-2 overflow-x-auto whitespace-nowrap pb-3">
+              {attackScenarios.map((item, index) => (
+                <button
+                  key={item.id}
+                  onClick={() => selectScenario(item.id)}
+                  className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] transition ${scenarioId === item.id ? "border-[#c8f560]/35 bg-[#c8f560]/10 text-[#d9ff77]" : "border-white/[0.08] bg-black/20 text-white/38 hover:text-white/65"}`}
+                >
+                  0{index + 1} · {item.name}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="absolute inset-x-0 bottom-0 top-[150px]">
+          <div className="relative min-h-[540px] flex-1">
             <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1000 560" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
               <defs>
                 <linearGradient id="route" x1="0" x2="1">
@@ -299,7 +307,7 @@ export default function Home() {
             <TraceNode icon={isToolEscalation ? <LockKeyhole /> : <Database />} label={isUnknown ? "Context bundler" : isGoalHijack ? "Goal boundary" : isToolEscalation ? "Shell tool" : scenarioId === "memory-poisoning" ? "Agent memory" : scenarioId === "loop-exhaustion" ? "Iteration 9" : "Customer DB"} meta={isUnknown ? "Unseen tool sequence" : isGoalHijack ? "6% task relevance" : isToolEscalation ? "Not in capability set" : scenarioId === "loop-exhaustion" ? "Budget exceeded" : "Protected resource"} className="left-[57%] top-[37%]" state="warning" />
             <TraceNode icon={<Mail />} label={isUnknown ? "Approval gate" : isGoalHijack ? "Policy gateway" : isToolEscalation ? "Execution boundary" : scenarioId === "memory-poisoning" ? "Trust policy" : scenarioId === "loop-exhaustion" ? "Next tool call" : "External email"} meta={analystDecision === "contained" ? "Contained by analyst" : analystDecision === "safe" ? "Approved once" : requiresReview ? "Awaiting analyst" : evaluation.decision === "block" ? "Auto-contained" : "Action continued"} className="left-[79%] top-[62%]" state={evaluation.decision === "block" || analystDecision === "contained" ? "blocked" : analystDecision === "safe" ? "active" : "warning"} />
 
-            <div className="absolute left-[53%] top-[10%] hidden w-[206px] rounded-2xl border border-white/[0.08] bg-[#101418]/90 p-4 shadow-2xl backdrop-blur-xl md:block">
+            <div className="absolute right-[4%] top-[7%] hidden w-[206px] rounded-2xl border border-white/[0.08] bg-[#101418]/90 p-4 shadow-2xl backdrop-blur-xl md:block">
               <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30">{isUnknown ? "Behavior drift" : isToolEscalation ? "Capability check" : "Task boundary"}</div>
               <div className="text-sm font-medium">{isUnknown ? `${String(noveltyFinding?.evidence.noveltyScore ?? 0)}/100 novelty` : isToolEscalation ? "Tool not granted" : `${Math.round(proposedAction.taskRelevance * 100)}% relevance`}</div>
               <p className="mt-1 text-xs leading-relaxed text-white/42">{scenario.summary}</p>
@@ -325,7 +333,7 @@ export default function Home() {
           </div>
         </div>
 
-        <aside ref={incidentPanelRef} className="soc-scrollbar flex min-h-[640px] flex-col overflow-x-hidden overflow-y-auto rounded-[26px] border border-white/[0.08] bg-[#0b0e11] p-5 lg:min-h-0">
+        <aside ref={incidentPanelRef} className="soc-scrollbar flex min-h-[640px] flex-col overflow-x-hidden overflow-y-auto rounded-[26px] border border-white/[0.08] bg-[#0b0e11] p-5 lg:max-h-[calc(100vh-112px)]">
           <div className="mb-5 flex items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.035] p-1 md:hidden">
             {(["unprotected", "observe", "enforce"] as Mode[]).map((item) => <button key={item} onClick={() => selectMode(item)} className={`flex-1 rounded-full px-2 py-2 text-[11px] font-medium capitalize ${mode === item ? "bg-white/[0.11] text-white" : "text-white/40"}`}>{item}</button>)}
           </div>
@@ -351,16 +359,18 @@ export default function Home() {
             <div className="mt-3 flex items-center justify-between gap-3"><label htmlFor="demo-actor" className="text-[11px] text-white/60">Attack as synthetic user</label><select id="demo-actor" value={actorId} onChange={(event) => { setActorId(event.target.value); setGatewayResponse(null); }} className="rounded-lg border border-white/[0.08] bg-[#151a1d] px-2 py-1.5 text-[11px] text-white/70">{demoActors.map((actor) => <option key={actor.id} value={actor.id}>{actor.name}</option>)}</select></div>
             {gatewayResponse?.auditIdentity && <div className="mt-3 rounded-lg border border-[#c8f560]/20 bg-[#c8f560]/[0.05] p-2 text-[10px] text-[#c8f560]">Verified in backend log: {gatewayResponse.auditIdentity.actorName}<span className="mt-1 block break-all font-mono text-white/35">prompt {gatewayResponse.auditIdentity.promptId}</span></div>}
             <div className="my-4 border-t border-white/[0.06]" />
-            <div className="mb-2 flex items-center justify-between">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
               <label htmlFor="attack-prompt" className="text-[11px] font-medium text-white/60">Prompt / untrusted content</label>
-              <span className="text-[10px] text-white/30">Stored verbatim on submit</span>
+              <span className="text-right text-[10px] text-white/30">Known secrets redacted in logs</span>
             </div>
-            <textarea id="attack-prompt" value={promptText} onChange={(event) => setPromptText(event.target.value)} maxLength={10_000} spellCheck={false} className="soc-scrollbar min-h-24 w-full resize-y rounded-xl border border-white/[0.07] bg-black/20 p-3 text-xs leading-relaxed text-white/75 outline-none focus:border-[#c8f560]/35" />
+            <textarea id="attack-prompt" value={promptText} onChange={(event) => { setPromptText(event.target.value); setGatewayResponse(null); }} maxLength={10_000} spellCheck={false} className="soc-scrollbar min-h-24 w-full resize-y rounded-xl border border-white/[0.07] bg-black/20 p-3 text-xs leading-relaxed text-white/75 outline-none focus:border-[#c8f560]/35" />
             <p className="mt-2 text-[10px] leading-relaxed text-white/35">Edit freely. A deterministic mock agent extracts supported intents into the proposed tool action; use the action inspector for exact payloads. Unknown wording may be missed.</p>
+            {mode !== "enforce" && !stockReplay && <p className="mt-2 rounded-lg border border-[#f4b860]/20 bg-[#f4b860]/[0.06] p-2 text-[10px] text-[#f4b860]">Edited prompts and actions run in Enforce mode. Unprotected and Observe are reserved for unchanged synthetic scenarios.</p>}
+            {gatewayResponse && gatewayResponse.evaluation.mode !== mode && <p className="mt-2 text-[10px] text-[#f4b860]">This submission was enforced because its action differed from the stock demo.</p>}
             <div className="mt-3 rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2 font-mono text-[10px] text-white/45">Proposal → {proposedAction.tool}.{proposedAction.operation} · {proposedAction.destination ?? String(proposedAction.arguments.path ?? proposedAction.arguments.tenantId ?? "scoped")}</div>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">Attack flow</div><div className="mt-3 space-y-2 text-[11px]">{[["01", "Untrusted input", "Editable prompt enters sandbox"], ["02", "Mock agent proposal", `${proposedAction.tool}.${proposedAction.operation}`], ["03", "Policy gateway", `${evaluation.findings.length} findings · ${evaluation.decision}`], ["04", "Tool boundary", gatewayResponse ? gatewayResponse.execution.executed ? "Mock action executed" : "Action held" : "Awaiting run"], ["05", "SOC audit", gatewayResponse ? "Receipt stored for analyst" : "Prompt and receipt on run"]].map(([number, title, subtitle]) => <div key={number} className="flex gap-3"><span className="font-mono text-[#c8f560]/60">{number}</span><span><b className="block font-medium text-white/70">{title}</b><span className="text-[10px] text-white/35">{subtitle}</span></span></div>)}</div></div>
+            <div className="mt-4 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">Attack flow</div><div className="mt-3 space-y-2 text-[11px]">{[["01", "Untrusted input", "Editable prompt enters sandbox"], ["02", "Mock agent proposal", `${proposedAction.tool}.${proposedAction.operation}`], ["03", "Policy gateway", `${evaluation.findings.length} findings · ${evaluation.decision}`], ["04", "Tool boundary", gatewayResponse ? gatewayResponse.execution.executed ? effectiveMode === "unprotected" || effectiveMode === "observe" ? "Synthetic tool reach simulated" : "Mock action executed" : "Action held" : "Awaiting run"], ["05", "SOC audit", gatewayResponse ? "Receipt stored for analyst" : "Prompt and receipt on run"]].map(([number, title, subtitle]) => <div key={number} className="flex gap-3"><span className="font-mono text-[#c8f560]/60">{number}</span><span><b className="block font-medium text-white/70">{title}</b><span className="text-[10px] text-white/35">{subtitle}</span></span></div>)}</div></div>
 
           <div className="mt-7 flex items-center justify-between">
             <h3 className="text-sm font-medium">Evidence trail</h3>
@@ -400,8 +410,8 @@ export default function Home() {
 
           <div className={`mt-5 rounded-2xl border p-4 ${requiresReview ? "border-[#f4b860]/20 bg-[#f4b860]/[0.04]" : "border-[#c8f560]/15 bg-[#c8f560]/[0.035]"}`}>
             <div className="flex items-center justify-between">
-              <div className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${mode === "unprotected" || requiresReview && analystDecision === "pending" ? "text-[#f4b860]" : "text-[#c8f560]/70"}`}>{mode === "unprotected" ? "Policy bypass mode" : requiresReview ? analystDecision === "pending" ? "Analyst decision needed" : "Analyst decision recorded" : "Automatically resolved"}</div>
-              <span className="rounded-full bg-white/[0.05] px-2 py-1 text-[9px] text-white/35">{mode === "unprotected" ? "Sandbox only" : requiresReview ? "Novel · ambiguous" : "Deterministic policy"}</span>
+              <div className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${effectiveMode === "unprotected" || requiresReview && analystDecision === "pending" ? "text-[#f4b860]" : "text-[#c8f560]/70"}`}>{effectiveMode === "unprotected" ? "Policy bypass mode" : requiresReview ? analystDecision === "pending" ? "Analyst decision needed" : "Analyst decision recorded" : "Automatically resolved"}</div>
+              <span className="rounded-full bg-white/[0.05] px-2 py-1 text-[9px] text-white/35">{effectiveMode === "unprotected" ? "Synthetic only" : requiresReview ? "Novel · ambiguous" : "Deterministic policy"}</span>
             </div>
             <p className="mt-2 text-[13px] font-medium leading-relaxed text-white/80">
               {responseCopy}
@@ -424,7 +434,7 @@ export default function Home() {
               </>
             ) : (
               <div className="mt-3 flex items-center gap-2 rounded-xl border border-white/[0.06] bg-black/15 px-3 py-2.5 text-[10px] text-white/40">
-                <ShieldCheck className="size-3.5 text-[#c8f560]" /> {mode === "unprotected" ? "Policy bypassed" : "Policy applied"} · {gatewayResponse ? (gatewayResponse.execution.executed ? "mock tool executed" : "execution stopped") : "awaiting run"} · audit {gatewayResponse ? "stored" : "pending"}
+                <ShieldCheck className="size-3.5 text-[#c8f560]" /> {effectiveMode === "unprotected" ? "Policy bypassed" : effectiveMode === "observe" ? "Policy observed" : "Policy applied"} · {gatewayResponse ? (gatewayResponse.execution.executed ? effectiveMode === "unprotected" || effectiveMode === "observe" ? "synthetic tool reach simulated" : "mock tool executed" : "execution stopped") : "awaiting run"} · audit {gatewayResponse ? "stored" : "pending"}
               </div>
             )}
             <div className="mt-3 flex items-center gap-3 text-[9px] text-white/30">

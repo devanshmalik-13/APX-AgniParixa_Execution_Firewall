@@ -1,5 +1,5 @@
 import { finalizeRun, recordRun } from "./run-store";
-import { executeTool } from "./connectors";
+import { executeTool, simulateUnprotectedTool } from "./connectors";
 import { evaluateAction } from "./policy-engine";
 import type { ActionRequest, EnforcementMode, GatewayResponse, TaskContext, ToolExecutionResult } from "./types";
 
@@ -17,7 +17,7 @@ export async function runGateway(task: TaskContext, action: ActionRequest, mode:
   const receipt = await recordRun(promptId, evaluation, execution);
   if (evaluation.decision === "allow" || evaluation.decision === "observe") {
     try {
-      execution = executeTool(task, action);
+      execution = mode === "unprotected" || mode === "observe" ? simulateUnprotectedTool(action) : executeTool(task, action);
     } catch (error) {
       execution = { executed: false, tool: action.tool, operation: action.operation, safeAlternative: error instanceof Error ? error.message : "Connector rejected the action." };
     }

@@ -25,7 +25,7 @@ The included demo sends eight attacks through a real server-side policy gateway 
 7. A canonical-path traversal attempt against the filesystem sandbox.
 8. A structured database request that attempts to cross a tenant boundary.
 
-Exact server-owned fixtures can be run in `unprotected`, `observe`, and `enforce` modes for comparison. Custom submissions are always enforced, and client-claimed trusted provenance is downgraded. The gateway redacts recognizable secrets before storing a prompt, then records the proposed action and policy decision before tool dispatch, followed by its execution outcome and SHA-256 decision receipt in D1. The live inspector lets judges mutate the action envelope and resubmit it. All tools and data remain synthetic.
+Exact server-owned fixtures at every attack level can be run in `unprotected`, `observe`, and `enforce` modes for comparison. In Unprotected and Observe, tool reach is a counterfactual simulation—no real system or mock store is mutated. Custom submissions are always enforced, and client-claimed trusted provenance is downgraded. The gateway redacts recognizable secrets before storing a prompt, then records the proposed action and policy decision before tool dispatch, followed by its execution outcome and SHA-256 decision receipt in D1. The live inspector lets judges mutate the action envelope and resubmit it. All tools and data remain synthetic.
 
 ## What makes this different
 

@@ -97,3 +97,17 @@ export function executeTool(task: TaskContext, action: ActionRequest): ToolExecu
   }
   throw new Error("No connector is registered for the requested tool.");
 }
+
+/** A counterfactual for fixed demo fixtures: never touches OS, network, or the mock stores. */
+export function simulateUnprotectedTool(action: ActionRequest): ToolExecutionResult {
+  return {
+    executed: true,
+    tool: action.tool,
+    operation: action.operation,
+    output: {
+      simulated: true,
+      counterfactual: true,
+      explanation: "In the unprotected demo, this proposed action would reach its tool. No real tool or data was accessed.",
+    },
+  };
+}

@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { runGateway } from "@/lib/security/gateway";
 import { gatewayRequestSchema } from "@/lib/security/request-schema";
-import { attackScenarios, demoTask } from "@/lib/security/scenarios";
+import { demoTask } from "@/lib/security/scenarios";
 import { getStoredAttribution, markPromptRejected, recordPrompt } from "@/lib/security/run-store";
-import { actorForScenario, attackLevels, demoActors, proposeAction } from "@/lib/security/attack-lab";
+import { actorForScenario, attackLevels, demoActors } from "@/lib/security/attack-lab";
 import { constrainDemoIngress } from "@/lib/security/ingress";
+import { isExactDemoFixture } from "@/lib/security/demo-fixture";
 
 export async function POST(request: Request) {
   let promptId: string | undefined;
@@ -13,14 +14,14 @@ export async function POST(request: Request) {
     const raw = await request.json() as Record<string, unknown>;
     const prompt = typeof raw?.prompt === "string" ? raw.prompt : "";
     if (!prompt || prompt.length > 10_000) return NextResponse.json({ error: "Prompt must be 1–10,000 characters." }, { status: 400 });
-    const fixture = attackScenarios.find((item) => item.id === raw?.scenarioId && item.prompt === prompt && (JSON.stringify(item.action) === JSON.stringify(raw?.action) || JSON.stringify(proposeAction(item.id, "easy", prompt)) === JSON.stringify(raw?.action)));
+    const fixture = isExactDemoFixture(raw?.scenarioId, raw?.attackLevel, prompt, raw?.action);
     const requestedActor = demoActors.find((actor) => actor.id === raw?.actorId);
     const actor = requestedActor ?? (typeof raw?.scenarioId === "string" ? actorForScenario(raw.scenarioId) : demoActors[4]);
     const level = attackLevels.find((item) => item === raw?.attackLevel);
     const entry = await recordPrompt({ prompt, source: fixture ? "replay" : "custom", scenarioId: typeof raw?.scenarioId === "string" ? raw.scenarioId : undefined, groundTruth: fixture ? "attack" : "unknown", actorId: actor.id, actorName: actor.name, attackLevel: level });
     promptId = entry.id;
     const body = gatewayRequestSchema.parse(raw);
-    const constrained = constrainDemoIngress(body.action, body.mode, Boolean(fixture));
+    const constrained = constrainDemoIngress(body.action, body.mode, fixture);
     const result = await runGateway(demoTask, constrained.action, constrained.mode, entry.id);
     const auditIdentity = await getStoredAttribution(entry.id);
     return NextResponse.json({ ...result, auditIdentity });
