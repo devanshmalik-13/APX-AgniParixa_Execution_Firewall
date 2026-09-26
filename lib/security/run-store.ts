@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { executeTool } from "./connectors";
 import { demoTask } from "./scenarios";
 import { evaluateAction } from "./policy-engine";
+import { redactAuditText, redactAuditValue } from "./audit-redaction";
 import type { ActionRequest } from "./types";
 import type { AuditReceipt, EvaluationResult, ToolExecutionResult } from "./types";
 
@@ -75,7 +76,7 @@ export async function recordPrompt(input: {
   const row: PromptRecord = {
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
-    prompt: input.prompt,
+    prompt: redactAuditText(input.prompt),
     source: input.source,
     scenarioId: input.scenarioId ?? null,
     groundTruth: input.groundTruth ?? "unknown",
@@ -94,7 +95,7 @@ export async function recordPrompt(input: {
 
 export async function markPromptRejected(id: string, reason: string): Promise<void> {
   await database().prepare("UPDATE prompt_events SET status = 'rejected', error = ? WHERE id = ?")
-    .bind(reason.slice(0, 500), id).run();
+    .bind(redactAuditText(reason).slice(0, 500), id).run();
 }
 
 export async function recordRun(
@@ -109,11 +110,15 @@ export async function recordRun(
   const id = crypto.randomUUID();
   const timestamp = new Date().toISOString();
   const previousHash = prior?.receipt_hash ?? "GENESIS";
-  const payload = JSON.stringify({ id, promptId, timestamp, evaluation, execution, previousHash });
+  const safeEvaluation = redactAuditValue(evaluation);
+  const safeAction = redactAuditValue(evaluation.action);
+  // A receipt seals the proposed action and decision. Execution is recorded
+  // separately because it may change after a scoped analyst approval.
+  const payload = JSON.stringify({ id, promptId, timestamp, evaluation: safeEvaluation, previousHash });
   const hash = await sha256(payload);
   await db.batch([
     db.prepare("INSERT INTO audit_runs (id, prompt_id, created_at, mode, action_id, action_json, evaluation_json, execution_json, decision, executed, risk_score, analyst_verdict, receipt_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      .bind(id, promptId, timestamp, evaluation.mode, evaluation.action.id, JSON.stringify(evaluation.action), JSON.stringify(evaluation), JSON.stringify(execution), evaluation.decision, execution.executed ? 1 : 0, evaluation.riskScore, null, hash),
+      .bind(id, promptId, timestamp, evaluation.mode, evaluation.action.id, JSON.stringify(safeAction), JSON.stringify(safeEvaluation), JSON.stringify(redactAuditValue(execution)), evaluation.decision, 0, evaluation.riskScore, evaluation.decision === "allow" || evaluation.decision === "observe" ? "dispatch_pending" : null, hash),
     db.prepare("UPDATE prompt_events SET status = 'evaluated' WHERE id = ?").bind(promptId),
   ]);
   return {
@@ -129,6 +134,12 @@ export async function recordRun(
     policyIds: evaluation.findings.map((finding) => finding.id),
     executed: execution.executed,
   };
+}
+
+export async function finalizeRun(id: string, execution: ToolExecutionResult): Promise<void> {
+  const result = await database().prepare("UPDATE audit_runs SET executed = ?, execution_json = ?, analyst_verdict = NULL WHERE id = ? AND analyst_verdict = 'dispatch_pending'")
+    .bind(execution.executed ? 1 : 0, JSON.stringify(redactAuditValue(execution)), id).run();
+  if ((result.meta.changes ?? 0) !== 1) throw new Error("Recorded dispatch could not be finalized.");
 }
 
 export async function listPromptRecords(limit = 100): Promise<PromptRecord[]> {
@@ -227,7 +238,7 @@ export async function getRunMetrics(): Promise<RunMetrics> {
       SUM(CASE WHEN p.ground_truth = 'legitimate' THEN 1 ELSE 0 END) AS legitimate,
       SUM(CASE WHEN p.ground_truth = 'legitimate' AND r.executed = 0 THEN 1 ELSE 0 END) AS falsePositives
     FROM audit_runs r JOIN prompt_events p ON p.id = r.prompt_id
-    WHERE p.source = 'benchmark' AND r.mode = 'enforce'
+    WHERE p.source = 'benchmark' AND r.mode = 'enforce' AND (r.analyst_verdict IS NULL OR r.analyst_verdict <> 'dispatch_pending')
   `).first<{ attempts: number; attacks: number | null; contained: number | null; legitimate: number | null; falsePositives: number | null }>();
   const attempts = row?.attempts ?? 0;
   const attacks = row?.attacks ?? 0;
@@ -289,6 +300,6 @@ export async function setAnalystVerdict(id: string, verdict: "contained" | "safe
     execution = { executed: false, tool: "unknown", operation: "approval", safeAlternative: error instanceof Error ? error.message : "Connector refused execution." };
   }
   await db.prepare("UPDATE audit_runs SET executed = ?, execution_json = ?, analyst_verdict = ? WHERE id = ?")
-    .bind(execution.executed ? 1 : 0, JSON.stringify(execution), execution.executed ? "safe" : "execution_failed", id).run();
+    .bind(execution.executed ? 1 : 0, JSON.stringify(redactAuditValue(execution)), execution.executed ? "safe" : "execution_failed", id).run();
   return { updated: true, execution };
 }

@@ -44,3 +44,18 @@ test("prototype property names cannot act as database table grants", () => {
   assert.equal(evaluateAction(demoTask, action, "enforce").decision, "block");
   assert.throws(() => executeTool(demoTask, action), /Table is not/);
 });
+
+test("an approved tool cannot smuggle an unregistered operation", () => {
+  const action = { ...base, tool: "send_email", operation: "delete_all", arguments: { recipient: "soc@velloe.internal" }, destination: "soc@velloe.internal" };
+  assert.equal(evaluateAction(demoTask, action, "enforce").decision, "block");
+  assert.throws(() => executeTool(demoTask, action), /not a permitted/);
+});
+
+test("unknown document IDs and untrusted memory writes are rejected by the connector", () => {
+  const document = { ...base, tool: "read_document", operation: "read", arguments: { documentId: "administrator-private" } };
+  assert.equal(evaluateAction(demoTask, document, "enforce").decision, "block");
+  assert.throws(() => executeTool(demoTask, document), /outside the task data grant/);
+  const memory = { ...base, tool: "write_memory", operation: "save_preference", arguments: { fact: "Always email me reports" }, requestedBy: [{ sourceId: "retrieved", sourceType: "retrieved_document" as const, trust: "untrusted" as const, sensitivity: "public" as const }] };
+  assert.equal(evaluateAction(demoTask, memory, "enforce").decision, "block");
+  assert.throws(() => executeTool(demoTask, memory), /Untrusted content/);
+});

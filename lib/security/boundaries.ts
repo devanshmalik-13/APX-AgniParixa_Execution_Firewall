@@ -44,3 +44,18 @@ export function emailBoundary(action: ActionRequest): string | null {
   if (action.destination && action.arguments.recipient !== undefined && action.destination !== action.arguments.recipient) return "Destination and recipient disagree.";
   return null;
 }
+
+const connectorOperations: Record<string, readonly string[]> = {
+  filesystem: ["read", "list", "write"],
+  database: ["select"],
+  send_email: ["draft", "send", "send_digest"],
+  write_memory: ["save_preference"],
+  read_document: ["read", "fetch_again"],
+};
+
+export function operationBoundary(action: ActionRequest): string | null {
+  const operations = Object.hasOwn(connectorOperations, action.tool) ? connectorOperations[action.tool] : undefined;
+  if (!operations) return `No connector is registered for ${action.tool}.`;
+  if (!operations.includes(action.operation)) return `${action.operation} is not a permitted ${action.tool} operation.`;
+  return null;
+}

@@ -1,6 +1,6 @@
 import { scanForSecrets } from "./secret-scanner";
 import { detectBehaviorNovelty } from "./novelty-detector";
-import { emailBoundary, emailRecipient, filesystemBoundary } from "./boundaries";
+import { emailBoundary, emailRecipient, filesystemBoundary, operationBoundary } from "./boundaries";
 import type {
   ActionRequest,
   EnforcementMode,
@@ -114,6 +114,13 @@ export function evaluateAction(
     }
   }
 
+  if (action.tool === "read_document") {
+    const documentId = String(action.arguments.documentId ?? "");
+    if (!task.allowedData.includes(documentId)) {
+      findings.push({ id: "document-out-of-scope", title: "Document is outside the task grant", description: "The requested document is not in the task data allowlist.", severity: "critical", score: 100, hardBlock: true, evidence: { documentId } });
+    }
+  }
+
   if (!task.allowedTools.includes(action.tool)) {
     findings.push({
       id: "tool-out-of-scope",
@@ -124,6 +131,11 @@ export function evaluateAction(
       hardBlock: true,
       evidence: { tool: action.tool, allowedTools: task.allowedTools },
     });
+  }
+
+  const invalidOperation = operationBoundary(action);
+  if (invalidOperation) {
+    findings.push({ id: "operation-out-of-scope", title: "Operation is outside the connector grant", description: invalidOperation, severity: "critical", score: 100, hardBlock: true, evidence: { tool: action.tool, operation: action.operation } });
   }
 
   if (action.taskRelevance < policy.relevanceThreshold) {
@@ -177,7 +189,7 @@ export function evaluateAction(
     });
   }
 
-  if (action.changesAuthorization && untrustedSources.length > 0) {
+  if (action.tool === "write_memory" && untrustedSources.length > 0) {
     findings.push({
       id: "memory-poisoning",
       title: "Untrusted content attempted to change authorization memory",

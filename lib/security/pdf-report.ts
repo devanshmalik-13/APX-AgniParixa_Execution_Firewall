@@ -4,7 +4,6 @@ import type { ReportRecord } from "./run-store";
 const ink = rgb(0.09, 0.14, 0.17);
 const muted = rgb(0.38, 0.44, 0.47);
 const danger = rgb(0.72, 0.19, 0.15);
-const green = rgb(0.31, 0.48, 0.12);
 const A4: [number, number] = [595.28, 841.89];
 const margin = 47;
 const width = A4[0] - margin * 2;

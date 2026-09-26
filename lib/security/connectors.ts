@@ -1,5 +1,5 @@
 import path from "node:path";
-import { canonicalWorkspacePath, emailBoundary, emailRecipient, filesystemBoundary } from "./boundaries";
+import { canonicalWorkspacePath, emailBoundary, emailRecipient, filesystemBoundary, operationBoundary } from "./boundaries";
 import type { ActionRequest, TaskContext, ToolExecutionResult } from "./types";
 
 const workspaceFiles: Record<string, string> = {
@@ -67,6 +67,9 @@ export function executeDatabase(task: TaskContext, action: ActionRequest): ToolE
 }
 
 export function executeTool(task: TaskContext, action: ActionRequest): ToolExecutionResult {
+  const operationViolation = operationBoundary(action);
+  if (operationViolation) throw new Error(operationViolation);
+  if (!task.allowedTools.includes(action.tool)) throw new Error("Tool is outside the task capability grant.");
   if (action.tool === "filesystem") return executeFilesystem(task, action);
   if (action.tool === "database") return executeDatabase(task, action);
   if (action.tool === "send_email") {
@@ -81,14 +84,16 @@ export function executeTool(task: TaskContext, action: ActionRequest): ToolExecu
     return { executed: true, tool: action.tool, operation: action.operation, output: { simulated: true, mockOutboxId: id, recipient, sent: true, outboxCountInThisWorker: mockOutbox.length } };
   }
   if (action.tool === "write_memory") {
+    if (action.requestedBy.some((source) => source.trust === "untrusted")) throw new Error("Untrusted content cannot write memory.");
     const id = crypto.randomUUID();
     const fact = String(action.arguments.fact ?? action.content ?? "");
     mockMemory.push({ id, fact });
     return { executed: true, tool: action.tool, operation: action.operation, output: { simulated: true, mockMemoryId: id, fact, memoryCountInThisWorker: mockMemory.length } };
   }
   if (action.tool === "read_document") {
-    const documentId = String(action.arguments.documentId ?? "billing-policy");
+    const documentId = String(action.arguments.documentId ?? "");
+    if (!task.allowedData.includes(documentId)) throw new Error("Document is outside the task data grant.");
     return { executed: true, tool: action.tool, operation: action.operation, output: { simulated: true, documentId, content: "Synthetic billing record for the demo task." } };
   }
-  return { executed: true, tool: action.tool, operation: action.operation, output: { simulated: true, tool: action.tool, operation: action.operation } };
+  throw new Error("No connector is registered for the requested tool.");
 }

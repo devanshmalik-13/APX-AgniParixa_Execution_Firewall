@@ -4,7 +4,7 @@ export const demoTask: TaskContext = {
   id: "TASK-0042",
   description: "Summarize the customer's billing issue and draft an internal response.",
   allowedTools: ["read_document", "send_email", "write_memory", "filesystem", "database"],
-  allowedData: ["support_ticket", "billing_status"],
+  allowedData: ["support_ticket", "billing_status", "billing-policy", "style-guide"],
   allowedDestinations: ["velloe.internal"],
   tenantId: "velloe-demo",
   expiresAt: "2099-12-31T23:59:59.000Z",
