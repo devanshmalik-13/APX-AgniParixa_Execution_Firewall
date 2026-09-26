@@ -10,6 +10,7 @@ This is a hackathon prototype, not a production agent firewall. The working targ
 | TypeScript | Passed (`npx tsc --noEmit --incremental false`) |
 | ESLint | Passed (`npm run lint`) |
 | Production bundle | Passed (`npm run build`) |
+| Built Worker smoke test | `npm run start` served `/api/health` with HTTP 200 on `127.0.0.1:8787`. |
 | 16-case adversarial benchmark | 10/11 attacks contained; 1/5 legitimate cases blocked (`npm run evaluate`) |
 | Live local HTTP replay | Custom request claiming trusted retrieval and `unprotected` was forced to `enforce`, downgraded to untrusted, blocked before email dispatch, and persisted in D1 with its credential redacted. |
 | Live allow and approval paths | Scoped document read executed and finalized in D1. Novel action was held for approval; one analyst approval executed the exact mock action, and a duplicate approval returned HTTP 409. |
