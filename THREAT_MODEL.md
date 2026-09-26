@@ -25,7 +25,8 @@ An external sender, low-trust contributor, or compromised internal mailbox that 
 4. Only allowed actions reach the mock tool executor.
 5. Novel execution fingerprints are held for analyst approval rather than automatically labelled malicious.
 6. A server-owned capability passport constrains tenant, tool, operation, filesystem root, database schema, row count, destination, and expiry.
-7. Each submitted prompt is stored before action evaluation; the resulting policy receipt and mock execution are stored in D1. The model cannot directly write to the policy or audit tables.
+7. Each submitted prompt is redacted and stored before action evaluation; the policy decision is stored before mock tool dispatch, then its outcome is finalized in D1. The model cannot directly write to the policy or audit tables.
+8. Custom client submissions are forced into enforce mode, and client claims that retrieved or tool-returned content is trusted are downgraded. Unprotected and observe modes are reserved for exact server-owned demonstration fixtures.
 
 ## Out of scope
 
@@ -35,7 +36,8 @@ An external sender, low-trust contributor, or compromised internal mailbox that 
 - Guaranteed detection of unknown attacks; Behavior Drift only detects measurable deviation from the configured baseline.
 - Tools that execute outside the APX gateway.
 - OS-level isolation, symlink-race protection, and an immutable external audit service; the hackathon connectors are in-process simulations.
-- Trusted provenance, sensitivity, and task-relevance derivation from a live agent orchestrator. The test harness accepts these as part of the submitted action envelope.
+- Trusted provenance, sensitivity, and task-relevance derivation from a live agent orchestrator. The custom inspector still accepts client-supplied sensitivity and relevance fields; they are not attested. Exact synthetic fixtures are server-controlled.
+- Guaranteed removal of every secret from audit records. Redaction is best-effort and unknown formats may survive.
 - A guarantee against every obfuscation or unknown secret format.
 
 ## Honest security claim

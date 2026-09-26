@@ -6,7 +6,7 @@ export async function GET() {
     return new Response(JSON.stringify({ exportedAt: new Date().toISOString(), ...data }, null, 2), {
       headers: {
         "content-type": "application/json; charset=utf-8",
-        "content-disposition": "attachment; filename=agentshield-audit.json",
+        "content-disposition": "attachment; filename=apx-audit.json",
         "cache-control": "no-store",
       },
     });

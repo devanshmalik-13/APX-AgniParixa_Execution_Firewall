@@ -66,7 +66,7 @@ export function AuditExplorer({ refreshKey }: { refreshKey: number }) {
       {detail ? <div className="space-y-4 text-xs">
         <div className={`rounded-xl border p-4 ${flagged(detail) ? "border-[#ff6b4a]/25 bg-[#ff6b4a]/[0.055]" : "border-white/[0.08] bg-white/[0.025]"}`}>
           <div className="flex flex-wrap gap-3 text-[10px] text-white/45"><span>{detail.actorName}</span><span>{new Date(detail.createdAt).toLocaleString()}</span><span>{detail.source}</span><span>{detail.attackLevel ?? "manual"}</span></div>
-          <div className="mt-3 text-[10px] font-semibold uppercase tracking-wider text-white/40">Original prompt</div>
+          <div className="mt-3 text-[10px] font-semibold uppercase tracking-wider text-white/40">Stored prompt · known secrets redacted</div>
           <p className={`mt-2 whitespace-pre-wrap break-words leading-relaxed ${flagged(detail) ? "text-[#ff8064]" : "text-white/80"}`}>{detail.prompt}</p>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{[["Decision", detail.decision ?? detail.status], ["Risk", detail.riskScore === null ? "—" : `${detail.riskScore}/100`], ["Mock tool", detail.executed === null ? "—" : detail.executed ? "Executed" : "Held"], ["Ground truth", detail.groundTruth]].map(([label, value]) => <div key={label} className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3"><div className="text-[10px] text-white/35">{label}</div><div className="mt-1 font-medium text-white/80">{value}</div></div>)}</div>

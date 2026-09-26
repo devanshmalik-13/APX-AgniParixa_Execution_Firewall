@@ -9,7 +9,7 @@ const margin = 47;
 const width = A4[0] - margin * 2;
 
 // Standard PDF fonts cannot encode arbitrary Unicode. Keep generation fail-safe;
-// the original Unicode prompt remains unchanged in D1 and the JSON export.
+// the Unicode-preserving, redacted prompt remains available in D1 and JSON.
 function safe(value: unknown): string {
   return String(value ?? "-").normalize("NFKD").replace(/[\u2010-\u2015]/g, "-").replace(/[\u2018\u2019]/g, "'")
     .replace(/[\u201c\u201d]/g, '"').replace(/[^\x20-\x7e\n\r\t]/g, "?");
@@ -102,7 +102,7 @@ export async function createIncidentReport(records: ReportRecord[], scope: "prom
     wrapped(`Scenario: ${record.scenarioId ?? "custom"}  |  Level: ${record.attackLevel ?? "manual"}  |  Source: ${record.source}`, 9);
     wrapped(`Decision: ${record.decision ?? record.status}  |  Risk: ${record.riskScore ?? "n/a"}/100  |  Mode: ${record.mode ?? "n/a"}`, 9, bold, record.decision === "block" ? danger : ink);
     wrapped(`Ground truth: ${record.groundTruth}  |  Analyzed: ${record.analyzedAt ?? "not yet"}`, 9);
-    section("Original prompt");
+    section("Stored prompt (known secrets redacted)");
     wrapped(record.prompt, 10);
     section("Why this happened");
     wrapped(explainOutcome(record), 10, regular, record.decision === "block" ? danger : ink);

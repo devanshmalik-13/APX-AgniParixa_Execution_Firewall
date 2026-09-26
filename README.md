@@ -25,7 +25,7 @@ The included demo sends eight attacks through a real server-side policy gateway 
 7. A canonical-path traversal attempt against the filesystem sandbox.
 8. A structured database request that attempts to cross a tenant boundary.
 
-The same attack can be run in `unprotected`, `observe`, and `enforce` modes. The gateway records the submitted source prompt before evaluation, then stores the proposed action, policy decision, execution outcome, and a SHA-256 receipt in D1. The live inspector lets judges mutate the action envelope and resubmit it. All tools and data remain synthetic.
+Exact server-owned fixtures can be run in `unprotected`, `observe`, and `enforce` modes for comparison. Custom submissions are always enforced, and client-claimed trusted provenance is downgraded. The gateway redacts recognizable secrets before storing a prompt, then records the proposed action and policy decision before tool dispatch, followed by its execution outcome and SHA-256 decision receipt in D1. The live inspector lets judges mutate the action envelope and resubmit it. All tools and data remain synthetic.
 
 ## What makes this different
 
@@ -35,7 +35,7 @@ The demo connectors are functional, deliberately small enterprise simulators:
 
 - The filesystem adapter canonicalizes paths, confines reads to `/workspace`, and confines writes to `/workspace/drafts` while rejecting protected and executable filenames.
 - The database adapter accepts structured operations instead of raw SQL and enforces tenant, table, column, and row limits over synthetic records.
-- The prompt and run log remains available after Worker restarts. The receipt hash links the decision to its evidence for later debugging; it is not an immutable external audit service.
+- The prompt and run log remains available after Worker restarts. Recognizable credentials are redacted before persistence; unknown secret formats may remain. The receipt hash links the redacted decision to its evidence for later debugging; it is not an immutable external audit service.
 
 ## Why this is not another prompt filter
 
@@ -75,7 +75,7 @@ npm run build
 
 `npm test` verifies the policy engine and secret scanner. `npm run evaluate` executes the documented attack and legitimate-request set and prints measured misses and false positives.
 
-In the app, **Run attack** submits the selected prompt and proposed action to the server gateway. Select **Attack as synthetic user** first; the response displays the identity read back from D1 with the prompt ID, so the attribution can be checked in the logs. **Run 16-case attack bench** executes all documented fixtures and writes every prompt and result to D1. **Review user-wise prompt logs** ranks synthetic users by flagged count, lets you inspect every prompt with pagination, and opens full incident details. From a user or prompt detail, generate a structured PDF explaining policy findings, containment or non-containment, mock execution, analyst action, and receipt. The JSON export contains the exact full history, including Unicode that standard PDF fonts may not represent. `/api/audit` returns the recent log and aggregate metrics for recorded benchmark runs in enforce mode. Manual replays are logged separately and do not change the benchmark percentage.
+In the app, **Run attack** submits the selected prompt and proposed action to the server gateway. Select **Attack as synthetic user** first; the response displays the identity read back from D1 with the prompt ID, so the attribution can be checked in the logs. **Run 16-case attack bench** executes all documented fixtures and writes every prompt and result to D1. **Review user-wise prompt logs** ranks synthetic users by flagged count, lets you inspect every prompt with pagination, and opens full incident details. From a user or prompt detail, generate a structured PDF explaining policy findings, containment or non-containment, mock execution, analyst action, and receipt. The JSON export contains the full stored, redacted history, including Unicode that standard PDF fonts may not represent. `/api/audit` returns the recent log and aggregate metrics for recorded benchmark runs in enforce mode. Manual replays are logged separately and do not change the benchmark percentage.
 
 ## Five-minute judge demo
 
@@ -124,6 +124,8 @@ lib/security/gateway.ts          evaluate-before-execute orchestration
 lib/security/connectors.ts       sandboxed filesystem and scoped database adapters
 lib/security/boundaries.ts        shared enforcement checks used by policy and adapters
 lib/security/run-store.ts        durable D1 prompt and run records
+lib/security/audit-redaction.ts  best-effort credential redaction before persistence
+lib/security/ingress.ts          enforce-only custom input and provenance downgrade
 lib/security/request-schema.ts   untrusted request validation
 lib/security/types.ts            trust, task, action and audit types
 lib/security/policy-engine.ts    deterministic authorization policies
@@ -150,7 +152,7 @@ Each proposed action includes:
 
 The engine returns `allow`, `approval_required`, `observe`, or `block`, plus machine-readable findings. Hard policies take priority over aggregate scores. An approval request is held until the analyst records a decision. Only benchmark runs with known attack/legitimate labels contribute to the displayed rates; arbitrary edited submissions remain unlabeled. The UI displays the most recent 200 prompts, while D1 keeps the full history.
 
-The current attack harness supplies the agent's proposed tool action through a small deterministic mock-agent parser. It can extract supported recipients, paths, tenants, and iteration counts from edited prompts, and it falls back to a benign internal draft when an edited prompt has no recognizable attack cue. It does not run a live language model or understand arbitrary language. Use the JSON action inspector for exact action-envelope tests. A production integration must obtain trust labels, sensitivity, and task-relevance signals from a trusted orchestrator rather than accepting them from an untrusted client.
+The current attack harness supplies the agent's proposed tool action through a small deterministic mock-agent parser. It can extract supported recipients, paths, tenants, and iteration counts from edited prompts, and it falls back to a benign internal draft when an edited prompt has no recognizable attack cue. It does not run a live language model or understand arbitrary language. Use the JSON action inspector for exact action-envelope tests. Custom client submissions cannot claim trusted retrieved content or disable enforcement, but their sensitivity and task-relevance fields are not independently attested. A production integration must derive all provenance, sensitivity, and relevance signals from a trusted orchestrator, rather than accepting client metadata.
 
 ## Design references
 
