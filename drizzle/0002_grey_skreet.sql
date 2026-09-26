@@ -1,0 +1,1 @@
+ALTER TABLE `prompt_events` ADD `analyzed_at` text;
