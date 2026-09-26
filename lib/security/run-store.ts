@@ -147,6 +147,7 @@ export async function listRuns(limit = 100): Promise<StoredRun[]> {
 
 export interface ActorSummary { actorId: string; actorName: string; total: number; flagged: number; analyzed: number; latestAt: string }
 export interface ActorLog extends PromptRecord { runId: string | null; decision: string | null; riskScore: number | null; executed: boolean | null; analystVerdict: string | null }
+export interface ReportRecord extends ActorLog { mode: string | null; receiptHash: string | null; actionJson: string | null; evaluationJson: string | null; executionJson: string | null }
 
 export async function listActorSummaries(): Promise<ActorSummary[]> {
   const { results } = await database().prepare(`
@@ -183,7 +184,31 @@ export async function getPromptDetail(id: string) {
     r.executed, r.analyst_verdict AS analystVerdict, r.receipt_hash AS receiptHash,
     r.action_json AS actionJson, r.evaluation_json AS evaluationJson, r.execution_json AS executionJson
     FROM prompt_events p LEFT JOIN audit_runs r ON r.prompt_id = p.id WHERE p.id = ?`)
-    .bind(id).first();
+    .bind(id).first<ReportRecord>();
+}
+
+export async function getActorReportRecords(actorId: string): Promise<ReportRecord[]> {
+  const records: ReportRecord[] = [];
+  let cursor = 0;
+  while (true) {
+    const batch = await database().prepare(`SELECT p.rowid AS cursor, p.id, p.created_at AS createdAt, p.prompt, p.source,
+      p.scenario_id AS scenarioId, p.ground_truth AS groundTruth, p.status, p.error, p.actor_id AS actorId,
+      p.actor_name AS actorName, p.attack_level AS attackLevel, p.analyzed_at AS analyzedAt, r.id AS runId,
+      r.mode, r.decision, r.risk_score AS riskScore, r.executed, r.analyst_verdict AS analystVerdict,
+      r.receipt_hash AS receiptHash, r.action_json AS actionJson, r.evaluation_json AS evaluationJson,
+      r.execution_json AS executionJson FROM prompt_events p LEFT JOIN audit_runs r ON r.prompt_id = p.id
+      WHERE p.actor_id = ? AND p.rowid > ? ORDER BY p.rowid ASC LIMIT 200`)
+      .bind(actorId, cursor).all<ReportRecord & { cursor: number }>();
+    records.push(...batch.results.map((row) => ({ ...row, executed: row.executed === null ? null : Boolean(row.executed) })));
+    if (batch.results.length < 200) break;
+    cursor = batch.results.at(-1)!.cursor;
+  }
+  return records;
+}
+
+export async function getStoredAttribution(promptId: string) {
+  return database().prepare("SELECT id AS promptId, actor_id AS actorId, actor_name AS actorName FROM prompt_events WHERE id = ?")
+    .bind(promptId).first<{ promptId: string; actorId: string; actorName: string }>();
 }
 
 export async function markPromptAnalyzed(id: string): Promise<string | null> {

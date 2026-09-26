@@ -3,7 +3,7 @@ import { ZodError } from "zod";
 import { runGateway } from "@/lib/security/gateway";
 import { gatewayRequestSchema } from "@/lib/security/request-schema";
 import { attackScenarios, demoTask } from "@/lib/security/scenarios";
-import { markPromptRejected, recordPrompt } from "@/lib/security/run-store";
+import { getStoredAttribution, markPromptRejected, recordPrompt } from "@/lib/security/run-store";
 import { actorForScenario, attackLevels, demoActors, proposeAction } from "@/lib/security/attack-lab";
 
 export async function POST(request: Request) {
@@ -19,7 +19,9 @@ export async function POST(request: Request) {
     const entry = await recordPrompt({ prompt, source: fixture ? "replay" : "custom", scenarioId: typeof raw?.scenarioId === "string" ? raw.scenarioId : undefined, groundTruth: fixture ? "attack" : "unknown", actorId: actor.id, actorName: actor.name, attackLevel: level });
     promptId = entry.id;
     const body = gatewayRequestSchema.parse(raw);
-    return NextResponse.json(await runGateway(demoTask, body.action, body.mode, entry.id));
+    const result = await runGateway(demoTask, body.action, body.mode, entry.id);
+    const auditIdentity = await getStoredAttribution(entry.id);
+    return NextResponse.json({ ...result, auditIdentity });
   } catch (error) {
     if (error instanceof ZodError) {
       if (promptId) await markPromptRejected(promptId, "Invalid action envelope");

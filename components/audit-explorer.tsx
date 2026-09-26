@@ -55,7 +55,11 @@ export function AuditExplorer({ refreshKey }: { refreshKey: number }) {
       <DialogHeader><DialogTitle>{detail ? "Prompt incident" : selected ? `${selected.actorName} · ${reviewView === "pending" ? "to review" : "analyzed logs"}` : "User-wise audit log"}</DialogTitle><DialogDescription>{detail ? "Full prompt, decision, reasons and mock tool result." : selected ? `${total} ${reviewView === "pending" ? "to review" : "analyzed"} prompts · newest first · 50 per page` : "Synthetic demo identities, ranked by flagged prompts. Red means a gateway hold or rejected submission."}</DialogDescription></DialogHeader>
       <div className="flex items-center justify-between gap-3 text-[11px]">
         {(selected || detail) ? <button onClick={() => { if (detail) setDetail(null); else { setSelected(null); setPage(0); } }} className="flex items-center gap-1 text-white/55 hover:text-white"><ArrowLeft className="size-3.5" /> Back</button> : <span className="text-white/35">{users.length} users</span>}
-        <a href="/api/audit/export" download className="rounded-lg border border-white/[0.09] bg-white/[0.04] px-3 py-2 text-[#c8f560]">Download full JSON</a>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {detail && <a href={`/api/reports/prompt/${encodeURIComponent(detail.id)}`} download className="rounded-lg border border-[#c8f560]/25 bg-[#c8f560]/10 px-3 py-2 text-[#c8f560]">Generate prompt PDF</a>}
+          {selected && <a href={`/api/reports/user/${encodeURIComponent(selected.actorId)}`} download className="rounded-lg border border-[#c8f560]/25 bg-[#c8f560]/10 px-3 py-2 text-[#c8f560]">Generate user PDF</a>}
+          <a href="/api/audit/export" download className="rounded-lg border border-white/[0.09] bg-white/[0.04] px-3 py-2 text-white/55">Full JSON</a>
+        </div>
       </div>
       {error && <p className="rounded-lg bg-[#ff6b4a]/10 p-3 text-xs text-[#ff8064]">{error}</p>}
       {selected && !detail && <div className="grid grid-cols-2 gap-1 rounded-xl border border-white/[0.07] bg-black/20 p-1 text-xs">{(["pending", "analyzed"] as const).map((view) => <button key={view} onClick={() => { setReviewView(view); setPage(0); }} className={`rounded-lg py-2 capitalize ${reviewView === view ? "bg-white/[0.09] text-white" : "text-white/40"}`}>{view === "pending" ? "To review" : "Analyzed logs"}</button>)}</div>}

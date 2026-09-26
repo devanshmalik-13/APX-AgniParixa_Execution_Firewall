@@ -44,4 +44,6 @@ next-env.d.ts
 /.agents/
 /.codex/
 /outputs/
+/output/pdf/
+/tmp/pdfs/
 /work/

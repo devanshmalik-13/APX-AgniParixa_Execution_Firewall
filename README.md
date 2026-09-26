@@ -75,7 +75,7 @@ npm run build
 
 `npm test` verifies the policy engine and secret scanner. `npm run evaluate` executes the documented attack and legitimate-request set and prints measured misses and false positives.
 
-In the app, **Run attack** submits the selected prompt and proposed action to the server gateway. **Run 16-case attack bench** executes all documented fixtures and writes every prompt and result to D1. **Review user-wise prompt logs** ranks synthetic users by flagged count, lets you inspect every prompt with pagination, and opens full incident details. The JSON export contains the full history. `/api/audit` returns the recent log and aggregate metrics for recorded benchmark runs in enforce mode. Manual replays are logged separately and do not change the benchmark percentage.
+In the app, **Run attack** submits the selected prompt and proposed action to the server gateway. Select **Attack as synthetic user** first; the response displays the identity read back from D1 with the prompt ID, so the attribution can be checked in the logs. **Run 16-case attack bench** executes all documented fixtures and writes every prompt and result to D1. **Review user-wise prompt logs** ranks synthetic users by flagged count, lets you inspect every prompt with pagination, and opens full incident details. From a user or prompt detail, generate a structured PDF explaining policy findings, containment or non-containment, mock execution, analyst action, and receipt. The JSON export contains the exact full history, including Unicode that standard PDF fonts may not represent. `/api/audit` returns the recent log and aggregate metrics for recorded benchmark runs in enforce mode. Manual replays are logged separately and do not change the benchmark percentage.
 
 ## Five-minute judge demo
 
@@ -83,7 +83,8 @@ In the app, **Run attack** submits the selected prompt and proposed action to th
 2. Change to **Unprotected** and run the same prompt to show the same mock action continuing. Return to **Enforce** immediately.
 3. Choose **Unknown behavior** at **Hard**. Run it and show the approval gate: there is no signature match, but behavior drift causes a human review. Click **Keep isolated**.
 4. Set **Extreme**, choose **Judge test**, edit the prompt to include a different external recipient (for example `judge@outside.example`), and run. The proposal preview shows the recipient extracted from the prompt; the gateway evaluates that proposal. For exact tool-argument experiments, use **Open live action inspector**.
-5. Run the **16-case attack bench**. State the measured 10/11 attack containment and 1/5 false positives, including the known bypass and false positive below. Open **Review user-wise prompt logs**: flagged users are ranked first in red; click a user, then a prompt to show the reasons, tool action, result, and receipt.
+5. Select a different **Attack as synthetic user** identity and run an attempt. Show the backend-verified user and prompt ID below the selector, then find that same prompt under that user in the log.
+6. Run the **16-case attack bench**. State the measured 10/11 attack containment and 1/5 false positives, including the known bypass and false positive below. Open **Review user-wise prompt logs**: flagged users are ranked first in red; click a user, then a prompt to show the reasons, tool action, result, and receipt. Generate both **user PDF** and **prompt PDF** reports.
 
 All identities and tools are synthetic. Difficulty controls change prompt framing and task-relevance in the deterministic mock-agent proposal; they are not a calibrated measure of attacker skill or guaranteed to become harder to block.
 

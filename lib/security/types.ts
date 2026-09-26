@@ -91,6 +91,7 @@ export interface AuditReceipt {
 }
 
 export interface GatewayResponse {
+  auditIdentity?: { promptId: string; actorId: string; actorName: string } | null;
   evaluation: EvaluationResult;
   execution: ToolExecutionResult;
   receipt: AuditReceipt;
