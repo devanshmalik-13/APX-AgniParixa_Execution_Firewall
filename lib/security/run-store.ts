@@ -10,7 +10,7 @@ export interface PromptRecord {
   id: string;
   createdAt: string;
   prompt: string;
-  source: "fixture" | "custom";
+  source: "benchmark" | "replay" | "custom";
   scenarioId: string | null;
   groundTruth: GroundTruth;
   status: string;
@@ -56,7 +56,7 @@ async function sha256(value: string): Promise<string> {
 
 export async function recordPrompt(input: {
   prompt: string;
-  source: "fixture" | "custom";
+  source: "benchmark" | "replay" | "custom";
   scenarioId?: string;
   groundTruth?: GroundTruth;
 }): Promise<PromptRecord> {
@@ -138,7 +138,7 @@ export async function getRunMetrics(): Promise<RunMetrics> {
       SUM(CASE WHEN p.ground_truth = 'legitimate' THEN 1 ELSE 0 END) AS legitimate,
       SUM(CASE WHEN p.ground_truth = 'legitimate' AND r.executed = 0 THEN 1 ELSE 0 END) AS falsePositives
     FROM audit_runs r JOIN prompt_events p ON p.id = r.prompt_id
-    WHERE p.source = 'fixture' AND r.mode = 'enforce'
+    WHERE p.source = 'benchmark' AND r.mode = 'enforce'
   `).first<{ attempts: number; attacks: number | null; contained: number | null; legitimate: number | null; falsePositives: number | null }>();
   const attempts = row?.attempts ?? 0;
   const attacks = row?.attacks ?? 0;

@@ -10,7 +10,7 @@ export async function POST() {
     for (const testCase of evaluationCases) {
       const prompt = await recordPrompt({
         prompt: testCase.prompt,
-        source: "fixture",
+        source: "benchmark",
         scenarioId: testCase.id,
         groundTruth: testCase.malicious ? "attack" : "legitimate",
       });

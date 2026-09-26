@@ -54,4 +54,4 @@ npm run evaluate
 
 The command prints the summary and complete failure records. Changes to policy or fixtures should be accompanied by a fresh report.
 
-The dashboard's **Run 16-case attack bench** sends the same fixtures through the server gateway and stores each prompt, decision, and mock tool outcome in D1. The live percentage uses all recorded fixture runs in enforce mode. An analyst's one-time approval can change the final execution outcome, so live rates can differ from the untouched local fixture report.
+The dashboard's **Run 16-case attack bench** sends the same fixtures through the server gateway and stores each prompt, decision, and mock tool outcome in D1. The live percentage uses recorded benchmark runs in enforce mode. Manual replays are logged but excluded from that denominator. An analyst's one-time approval can change a benchmark run's final execution outcome, so live rates can differ from the untouched local fixture report.

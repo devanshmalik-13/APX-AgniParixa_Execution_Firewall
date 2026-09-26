@@ -73,7 +73,7 @@ npm run build
 
 `npm test` verifies the policy engine and secret scanner. `npm run evaluate` executes the documented attack and legitimate-request set and prints measured misses and false positives.
 
-In the app, **Run attack** submits the selected prompt and proposed action to the server gateway. **Run 16-case attack bench** executes all documented fixtures and writes every prompt and result to D1. **Review prompt and run log** shows recent entries for debugging and offers a full JSON export. `/api/audit` returns the recent log and aggregate metrics for all recorded fixture runs in enforce mode.
+In the app, **Run attack** submits the selected prompt and proposed action to the server gateway. **Run 16-case attack bench** executes all documented fixtures and writes every prompt and result to D1. **Review prompt and run log** shows recent entries for debugging and offers a full JSON export. `/api/audit` returns the recent log and aggregate metrics for recorded benchmark runs in enforce mode. Manual replays are logged separately and do not change the benchmark percentage.
 
 ## Current measured result
 
@@ -133,7 +133,7 @@ Each proposed action includes:
 - Destination, execution-budget, and memory-impact metadata when applicable.
 - An optional behavior fingerprint for detecting unseen execution patterns without an attack signature.
 
-The engine returns `allow`, `approval_required`, `observe`, or `block`, plus machine-readable findings. Hard policies take priority over aggregate scores. An approval request is held until the analyst records a decision. Only fixtures with known attack/legitimate labels contribute to the displayed rates; arbitrary edited submissions remain unlabeled. The UI displays the most recent 200 prompts, while D1 keeps the full history.
+The engine returns `allow`, `approval_required`, `observe`, or `block`, plus machine-readable findings. Hard policies take priority over aggregate scores. An approval request is held until the analyst records a decision. Only benchmark runs with known attack/legitimate labels contribute to the displayed rates; arbitrary edited submissions remain unlabeled. The UI displays the most recent 200 prompts, while D1 keeps the full history.
 
 The current attack harness supplies the agent's proposed tool action as a deterministic fixture. It does not run a live language model or infer the action from an edited prompt. Editing prompt text alone changes the logged source prompt, while editing the JSON changes the action being evaluated. A production integration must obtain trust labels, sensitivity, and task-relevance signals from a trusted orchestrator rather than accepting them from an untrusted client.
 

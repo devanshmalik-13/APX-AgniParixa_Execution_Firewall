@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     const prompt = typeof raw?.prompt === "string" ? raw.prompt : "";
     if (!prompt || prompt.length > 10_000) return NextResponse.json({ error: "Prompt must be 1–10,000 characters." }, { status: 400 });
     const fixture = attackScenarios.find((item) => item.id === raw?.scenarioId && item.prompt === prompt && JSON.stringify(item.action) === JSON.stringify(raw?.action));
-    const entry = await recordPrompt({ prompt, source: fixture ? "fixture" : "custom", scenarioId: fixture?.id, groundTruth: fixture ? "attack" : "unknown" });
+    const entry = await recordPrompt({ prompt, source: fixture ? "replay" : "custom", scenarioId: fixture?.id, groundTruth: fixture ? "attack" : "unknown" });
     promptId = entry.id;
     const body = gatewayRequestSchema.parse(raw);
     return NextResponse.json(await runGateway(demoTask, body.action, body.mode, entry.id));

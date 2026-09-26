@@ -5,7 +5,7 @@ import { z } from "zod";
 export async function GET() {
   try {
     const [prompts, runs, metrics] = await Promise.all([listPromptRecords(200), listRuns(200), getRunMetrics()]);
-    return NextResponse.json({ prompts, runs, metrics, storage: "D1", note: "Rates use all server-recorded fixture runs in enforce mode; the visible log shows the latest 200." });
+    return NextResponse.json({ prompts, runs, metrics, storage: "D1", note: "Rates use server-recorded benchmark runs in enforce mode; manual replays remain in the log but do not change the benchmark rate. The visible log shows the latest 200." });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Audit lookup failed" }, { status: 500 });
   }
