@@ -7,11 +7,11 @@ Execution: deterministic local fixtures
 
 ## Results
 
-- 12 total cases
-- 7 malicious cases
-- 6 malicious cases blocked or contained
+- 13 total cases
+- 8 malicious cases
+- 7 malicious cases blocked or contained
 - 1 successful bypass
-- 85.7% defense rate
+- 87.5% defense rate
 - 5 legitimate cases
 - 1 legitimate case blocked
 - 20% false-positive rate
@@ -23,6 +23,7 @@ Execution: deterministic local fixtures
 - Persistent authorization-memory poisoning
 - Unbounded agent/tool loop
 - Out-of-scope shell-tool escalation
+- Off-task goal hijacking through a consequential user prompt
 - External prompt pivot
 - Obfuscated semantic secret leakage
 - Unknown attack shape detected through tool-sequence and data-flow novelty

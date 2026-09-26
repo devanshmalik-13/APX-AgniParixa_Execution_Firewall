@@ -52,6 +52,24 @@ test("unknown execution shape is held for analyst approval without a known signa
   assert.equal(result.findings.some((finding) => finding.hardBlock), false);
 });
 
+test("a consequential action outside the assigned goal is blocked", () => {
+  const scenario = attackScenarios.find((item) => item.id === "goal-hijack");
+  assert.ok(scenario);
+
+  const result = evaluateAction(demoTask, scenario.action, "enforce");
+  assert.equal(result.decision, "block");
+  assert.ok(result.findings.some((finding) => finding.id === "task-mismatch" && finding.hardBlock));
+});
+
+test("a capability absent from the task allowlist cannot be approved", () => {
+  const scenario = attackScenarios.find((item) => item.id === "tool-escalation");
+  assert.ok(scenario);
+
+  const result = evaluateAction(demoTask, scenario.action, "enforce");
+  assert.equal(result.decision, "block");
+  assert.ok(result.findings.some((finding) => finding.id === "tool-out-of-scope" && finding.hardBlock));
+});
+
 test("normal in-scope internal action is allowed", () => {
   const result = evaluateAction(demoTask, {
     id: "legitimate-001",

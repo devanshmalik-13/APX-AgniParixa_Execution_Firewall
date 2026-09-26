@@ -5,13 +5,16 @@ import {
   ChevronDown,
   Database,
   FileWarning,
+  LockKeyhole,
   Mail,
   Play,
   Radar,
   ShieldCheck,
   Sparkles,
+  TimerReset,
+  Zap,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +34,8 @@ const scenarioTitles: Record<string, string> = {
   "memory-poisoning": "Persistent trust manipulation",
   "loop-exhaustion": "Runaway agent execution",
   "unknown-behavior": "Unrecognized behavior drift",
+  "tool-escalation": "Forbidden capability attempt",
+  "goal-hijack": "Off-task objective detected",
 };
 
 type AnalystDecision = "pending" | "contained" | "safe";
@@ -40,6 +45,7 @@ export default function Home() {
   const [scenarioId, setScenarioId] = useState(attackScenarios[0].id);
   const [running, setRunning] = useState(false);
   const [analystDecision, setAnalystDecision] = useState<AnalystDecision>("pending");
+  const incidentPanelRef = useRef<HTMLElement>(null);
   const benchmark = useMemo(() => runEvaluation(), []);
   const scenario = attackScenarios.find((item) => item.id === scenarioId) ?? attackScenarios[0];
   const evaluation = useMemo(() => evaluateAction(demoTask, scenario.action, mode), [mode, scenario]);
@@ -55,9 +61,20 @@ export default function Home() {
     tone: finding.severity === "critical" ? "red" : "amber",
   }));
   const isUnknown = scenario.id === "unknown-behavior";
+  const isToolEscalation = scenario.id === "tool-escalation";
+  const isGoalHijack = scenario.id === "goal-hijack";
   const noveltyFinding = evaluation.findings.find((finding) => finding.id === "novel-behavior");
+  const requiresReview = evaluation.decision === "approval_required";
+  const responseCopy = requiresReview
+    ? "Keep this session isolated while an analyst reviews the new execution pattern."
+    : evaluation.decision === "block"
+      ? "No approval needed. The gateway stopped the action and preserved the evidence automatically."
+      : "No analyst action needed. The event remains searchable in the audit trail.";
 
-  useEffect(() => setAnalystDecision("pending"), [scenarioId, mode]);
+  useEffect(() => {
+    setAnalystDecision("pending");
+    incidentPanelRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, [scenarioId, mode]);
 
   function runAttack() {
     setRunning(true);
@@ -77,7 +94,14 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="hidden items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.035] p-1 md:flex">
+        <div className="hidden items-center gap-3 xl:flex">
+          <div className="flex items-center gap-2 rounded-full border border-[#c8f560]/15 bg-[#c8f560]/[0.045] px-3 py-2 text-[11px] text-white/55">
+            <Zap className="size-3.5 text-[#c8f560]" />
+            <span><b className="font-semibold text-white/80">97.8%</b> auto-handled</span>
+            <span className="text-white/20">·</span>
+            <span><b className="font-semibold text-[#f4b860]">3</b> need review</span>
+          </div>
+          <div className="flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.035] p-1">
           {(["unprotected", "observe", "enforce"] as Mode[]).map((item) => (
             <button
               key={item}
@@ -87,6 +111,7 @@ export default function Home() {
               {item}
             </button>
           ))}
+          </div>
         </div>
 
         <button className="flex items-center gap-2 rounded-full border border-white/[0.1] bg-white/[0.045] px-3 py-2 text-xs text-white/65">
@@ -146,14 +171,14 @@ export default function Home() {
               )}
             </svg>
 
-            <TraceNode icon={isUnknown ? <Radar /> : <FileWarning />} label={isUnknown ? "Agent session" : scenarioId === "memory-poisoning" ? "Poisoned invoice" : scenarioId === "loop-exhaustion" ? "Tool response" : "Support ticket"} meta={isUnknown ? "No signature match" : "Untrusted source"} className="left-[12%] top-[37%]" state="warning" />
+            <TraceNode icon={isUnknown ? <Radar /> : isToolEscalation ? <LockKeyhole /> : <FileWarning />} label={isUnknown ? "Agent session" : isGoalHijack ? "User request" : isToolEscalation ? "Injected request" : scenarioId === "memory-poisoning" ? "Poisoned invoice" : scenarioId === "loop-exhaustion" ? "Tool response" : "Support ticket"} meta={isUnknown ? "No signature match" : isGoalHijack ? "Outside assigned goal" : "Untrusted source"} className="left-[12%] top-[37%]" state="warning" />
             <TraceNode icon={<Sparkles />} label="Nova agent" meta="Task: summarize ticket" className="left-[31%] top-[13%]" state="active" />
-            <TraceNode icon={<Database />} label={isUnknown ? "Context bundler" : scenarioId === "memory-poisoning" ? "Agent memory" : scenarioId === "loop-exhaustion" ? "Iteration 9" : "Customer DB"} meta={isUnknown ? "Unseen tool sequence" : scenarioId === "loop-exhaustion" ? "Budget exceeded" : "Protected resource"} className="left-[57%] top-[37%]" state="warning" />
-            <TraceNode icon={<Mail />} label={isUnknown ? "Approval gate" : scenarioId === "memory-poisoning" ? "Trust policy" : scenarioId === "loop-exhaustion" ? "Next tool call" : "External email"} meta={analystDecision === "contained" ? "Contained by analyst" : evaluation.decision === "approval_required" ? "Awaiting analyst" : evaluation.decision === "block" ? "Execution stopped" : "Action continued"} className="left-[79%] top-[62%]" state={evaluation.decision === "block" || analystDecision === "contained" ? "blocked" : "warning"} />
+            <TraceNode icon={isToolEscalation ? <LockKeyhole /> : <Database />} label={isUnknown ? "Context bundler" : isGoalHijack ? "Goal boundary" : isToolEscalation ? "Shell tool" : scenarioId === "memory-poisoning" ? "Agent memory" : scenarioId === "loop-exhaustion" ? "Iteration 9" : "Customer DB"} meta={isUnknown ? "Unseen tool sequence" : isGoalHijack ? "6% task relevance" : isToolEscalation ? "Not in capability set" : scenarioId === "loop-exhaustion" ? "Budget exceeded" : "Protected resource"} className="left-[57%] top-[37%]" state="warning" />
+            <TraceNode icon={<Mail />} label={isUnknown ? "Approval gate" : isGoalHijack ? "Policy gateway" : isToolEscalation ? "Execution boundary" : scenarioId === "memory-poisoning" ? "Trust policy" : scenarioId === "loop-exhaustion" ? "Next tool call" : "External email"} meta={analystDecision === "contained" ? "Contained by analyst" : requiresReview ? "Awaiting analyst" : evaluation.decision === "block" ? "Auto-contained" : "Action continued"} className="left-[79%] top-[62%]" state={evaluation.decision === "block" || analystDecision === "contained" ? "blocked" : "warning"} />
 
             <div className="absolute left-[53%] top-[10%] hidden w-[206px] rounded-2xl border border-white/[0.08] bg-[#101418]/90 p-4 shadow-2xl backdrop-blur-xl md:block">
-              <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30">{isUnknown ? "Behavior drift" : "Task boundary"}</div>
-              <div className="text-sm font-medium">{isUnknown ? `${String(noveltyFinding?.evidence.noveltyScore ?? 0)}/100 novelty` : `${Math.round(scenario.action.taskRelevance * 100)}% relevance`}</div>
+              <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30">{isUnknown ? "Behavior drift" : isToolEscalation ? "Capability check" : "Task boundary"}</div>
+              <div className="text-sm font-medium">{isUnknown ? `${String(noveltyFinding?.evidence.noveltyScore ?? 0)}/100 novelty` : isToolEscalation ? "Tool not granted" : `${Math.round(scenario.action.taskRelevance * 100)}% relevance`}</div>
               <p className="mt-1 text-xs leading-relaxed text-white/42">{scenario.summary}</p>
               {isUnknown && <div className="mt-3 border-t border-white/[0.07] pt-2 font-mono text-[9px] uppercase tracking-wider text-[#f4b860]">Known signature: none</div>}
             </div>
@@ -177,7 +202,7 @@ export default function Home() {
           </div>
         </div>
 
-        <aside className="soc-scrollbar flex min-h-[640px] flex-col overflow-x-hidden overflow-y-auto rounded-[26px] border border-white/[0.08] bg-[#0b0e11] p-5 lg:min-h-0">
+        <aside ref={incidentPanelRef} className="soc-scrollbar flex min-h-[640px] flex-col overflow-x-hidden overflow-y-auto rounded-[26px] border border-white/[0.08] bg-[#0b0e11] p-5 lg:min-h-0">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/30">Incident</div>
@@ -215,27 +240,37 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="mt-5 rounded-2xl border border-[#c8f560]/15 bg-[#c8f560]/[0.035] p-4">
+          <div className={`mt-5 rounded-2xl border p-4 ${requiresReview ? "border-[#f4b860]/20 bg-[#f4b860]/[0.04]" : "border-[#c8f560]/15 bg-[#c8f560]/[0.035]"}`}>
             <div className="flex items-center justify-between">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#c8f560]/65">Analyst decision</div>
-              <span className="rounded-full bg-white/[0.05] px-2 py-1 text-[9px] text-white/35">AI recommends · Human approves</span>
+              <div className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${requiresReview ? "text-[#f4b860]" : "text-[#c8f560]/70"}`}>{requiresReview ? "Analyst decision needed" : "Automatically resolved"}</div>
+              <span className="rounded-full bg-white/[0.05] px-2 py-1 text-[9px] text-white/35">{requiresReview ? "Novel · ambiguous" : "Deterministic policy"}</span>
             </div>
             <p className="mt-2 text-[13px] font-medium leading-relaxed text-white/80">
-              {isUnknown ? "Pause this agent session and inspect the unseen tool chain before allowing delivery." : "Preserve the evidence bundle and confirm containment of this agent session."}
+              {responseCopy}
             </p>
-            <div className="mt-3 flex gap-2">
-              <button
-                onClick={() => setAnalystDecision("contained")}
-                className={`flex-1 rounded-xl px-3 py-2.5 text-[11px] font-semibold transition ${analystDecision === "contained" ? "bg-[#c8f560]/15 text-[#c8f560]" : "bg-[#c8f560] text-[#11150c] hover:bg-[#d9ff77]"}`}
-              >
-                {analystDecision === "contained" ? "Containment approved" : "Approve containment"}
-              </button>
-              <button onClick={() => setAnalystDecision("safe")} className="rounded-xl border border-white/[0.09] px-3 py-2.5 text-[11px] text-white/55 transition hover:bg-white/[0.05]">
-                {analystDecision === "safe" ? "Marked safe" : "Mark safe"}
-              </button>
-            </div>
-            <div className="mt-3 flex gap-3 text-[9px] text-white/30">
-              <span>✓ revoke scoped token</span><span>✓ preserve audit</span><span>✓ stage rollback</span>
+            {requiresReview ? (
+              <>
+                <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl border border-white/[0.07] bg-black/15 p-3 text-[9px] text-white/42">
+                  <span><b className="block text-white/70">1 action</b>send digest</span>
+                  <span><b className="block text-white/70">5 minutes</b>auto expires</span>
+                  <span><b className="block text-white/70">No new data</b>same scope</span>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <button onClick={() => setAnalystDecision("contained")} className={`flex-1 rounded-xl px-3 py-2.5 text-[11px] font-semibold transition ${analystDecision === "contained" ? "bg-[#c8f560]/15 text-[#c8f560]" : "bg-[#c8f560] text-[#11150c] hover:bg-[#d9ff77]"}`}>
+                    {analystDecision === "contained" ? "Session kept isolated" : "Keep isolated"}
+                  </button>
+                  <button onClick={() => setAnalystDecision("safe")} className="rounded-xl border border-white/[0.09] px-3 py-2.5 text-[11px] text-white/55 transition hover:bg-white/[0.05]">
+                    {analystDecision === "safe" ? "Approved once" : "Approve once"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="mt-3 flex items-center gap-2 rounded-xl border border-white/[0.06] bg-black/15 px-3 py-2.5 text-[10px] text-white/40">
+                <ShieldCheck className="size-3.5 text-[#c8f560]" /> Policy applied · execution stopped · audit sealed
+              </div>
+            )}
+            <div className="mt-3 flex items-center gap-3 text-[9px] text-white/30">
+              <TimerReset className="size-3" /><span>Scoped response</span><span>✓ preserve audit</span><span>✓ reversible</span>
             </div>
           </div>
 

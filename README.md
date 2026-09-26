@@ -12,12 +12,14 @@ Open-source dependencies include React, Vinext/Next-compatible tooling, Tailwind
 
 All identities, messages, customer records, secrets, tools, recipients, and attacks are synthetic. Security testing is restricted to this repository's mock sandbox. The demonstration does not access real personal, patient, organizational, or third-party data.
 
-The included demo replays four attacks against a fictional workplace assistant:
+The included demo replays six attacks against a fictional workplace assistant:
 
 1. Indirect prompt injection leading to secret exfiltration.
 2. Persistent memory poisoning that changes authorization.
 3. A runaway agent loop that exceeds its execution budget.
 4. An unknown attack shape with no matching signature, detected through behavior drift.
+5. A forbidden shell capability requested by untrusted content.
+6. A consequential prompt that tries to hijack the agent beyond its assigned task.
 
 The same attack can be run in `unprotected`, `observe`, and `enforce` modes. Every decision produces a structured audit record with evidence and an explainable risk score.
 
@@ -32,7 +34,9 @@ Prompt injection does not have a universal text-classification fix. AgentShield 
 - Security-related memory writes from untrusted sources are blocked.
 - Iteration budgets contain runaway execution.
 - Behavior Drift compares tool sequences, argument shapes, destinations, and sensitive-data fan-in with a known-safe baseline. Novelty requests analyst review; it is not treated as proof of maliciousness.
-- Containment is staged with scoped-token revocation, evidence preservation, and rollback; the analyst approves or marks the incident safe.
+- Routine actions are allowed automatically and hard policy violations are contained automatically. Only the uncertain middle is sent to an analyst.
+- Novel-behavior approvals are limited to one action, expire after five minutes, and cannot expand the original data scope.
+- Containment is staged with scoped-token revocation, evidence preservation, and rollback.
 
 The model proposes actions. AgentShield makes the authorization decision.
 
@@ -59,13 +63,13 @@ npm run build
 
 ## Current measured result
 
-Evaluation set: 11 deterministic cases, executed locally against the policy engine.
+Evaluation set: 13 deterministic cases, executed locally against the policy engine.
 
 | Metric | Result |
 | --- | ---: |
-| Malicious cases | 7 |
-| Attacks blocked or contained | 6 |
-| Defense rate | 85.7% |
+| Malicious cases | 8 |
+| Attacks blocked or contained | 7 |
+| Defense rate | 87.5% |
 | Known bypasses | 1 |
 | Legitimate cases | 5 |
 | False positives | 1 |
@@ -89,7 +93,7 @@ lib/security/types.ts            trust, task, action and audit types
 lib/security/policy-engine.ts    deterministic authorization policies
 lib/security/novelty-detector.ts behavior-drift detection for unknown attacks
 lib/security/secret-scanner.ts   direct and encoded secret checks
-lib/security/scenarios.ts        four headline attack fixtures
+lib/security/scenarios.ts        six headline attack fixtures
 lib/security/evaluation.ts       attack and legitimate-request evaluation set
 tests/policy-engine.test.ts      security regression tests
 THREAT_MODEL.md                  attacker, assets, boundaries and exclusions

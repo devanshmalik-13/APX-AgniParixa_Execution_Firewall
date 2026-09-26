@@ -53,14 +53,17 @@ export function evaluateAction(
   }
 
   if (action.taskRelevance < policy.relevanceThreshold) {
+    const consequentialMismatch = action.taskRelevance < 0.15 && action.tool !== "read_document";
     findings.push({
       id: "task-mismatch",
       title: "Action is unrelated to the assigned task",
-      description: `Task relevance is ${Math.round(action.taskRelevance * 100)}%, below the ${Math.round(policy.relevanceThreshold * 100)}% policy threshold.`,
-      severity: "high",
-      score: 30,
-      hardBlock: false,
-      evidence: { relevance: action.taskRelevance, threshold: policy.relevanceThreshold },
+      description: consequentialMismatch
+        ? "A consequential tool action cannot expand the agent beyond its assigned objective."
+        : `Task relevance is ${Math.round(action.taskRelevance * 100)}%, below the ${Math.round(policy.relevanceThreshold * 100)}% policy threshold.`,
+      severity: consequentialMismatch ? "critical" : "medium",
+      score: consequentialMismatch ? 65 : 25,
+      hardBlock: consequentialMismatch,
+      evidence: { relevance: action.taskRelevance, threshold: policy.relevanceThreshold, consequentialMismatch },
     });
   }
 
