@@ -42,6 +42,16 @@ test("iteration budget contains runaway agents", () => {
   assert.ok(result.findings.some((finding) => finding.id === "iteration-budget"));
 });
 
+test("unknown execution shape is held for analyst approval without a known signature", () => {
+  const scenario = attackScenarios.find((item) => item.id === "unknown-behavior");
+  assert.ok(scenario);
+
+  const result = evaluateAction(demoTask, scenario.action, "enforce");
+  assert.equal(result.decision, "approval_required");
+  assert.equal(result.findings.some((finding) => finding.id === "novel-behavior"), true);
+  assert.equal(result.findings.some((finding) => finding.hardBlock), false);
+});
+
 test("normal in-scope internal action is allowed", () => {
   const result = evaluateAction(demoTask, {
     id: "legitimate-001",

@@ -1,6 +1,6 @@
 # AgentShield
 
-AgentShield is a runtime security boundary for tool-using AI agents. It assumes the model can be manipulated and evaluates every consequential tool request against a trusted task definition before execution.
+AgentShield is a SOC decision-support and runtime security boundary for tool-using AI agents. It does not replace the analyst: it collects evidence, prioritizes risk, stages a reversible response, and requires a human decision for uncertain or novel behavior.
 
 ## Hackathon build and AI disclosure
 
@@ -12,11 +12,12 @@ Open-source dependencies include React, Vinext/Next-compatible tooling, Tailwind
 
 All identities, messages, customer records, secrets, tools, recipients, and attacks are synthetic. Security testing is restricted to this repository's mock sandbox. The demonstration does not access real personal, patient, organizational, or third-party data.
 
-The included demo replays three attacks against a fictional workplace assistant:
+The included demo replays four attacks against a fictional workplace assistant:
 
 1. Indirect prompt injection leading to secret exfiltration.
 2. Persistent memory poisoning that changes authorization.
 3. A runaway agent loop that exceeds its execution budget.
+4. An unknown attack shape with no matching signature, detected through behavior drift.
 
 The same attack can be run in `unprotected`, `observe`, and `enforce` modes. Every decision produces a structured audit record with evidence and an explainable risk score.
 
@@ -30,6 +31,8 @@ Prompt injection does not have a universal text-classification fix. AgentShield 
 - Sensitive information cannot leave through an unauthorized destination.
 - Security-related memory writes from untrusted sources are blocked.
 - Iteration budgets contain runaway execution.
+- Behavior Drift compares tool sequences, argument shapes, destinations, and sensitive-data fan-in with a known-safe baseline. Novelty requests analyst review; it is not treated as proof of maliciousness.
+- Containment is staged with scoped-token revocation, evidence preservation, and rollback; the analyst approves or marks the incident safe.
 
 The model proposes actions. AgentShield makes the authorization decision.
 
@@ -60,9 +63,9 @@ Evaluation set: 11 deterministic cases, executed locally against the policy engi
 
 | Metric | Result |
 | --- | ---: |
-| Malicious cases | 6 |
-| Attacks blocked or contained | 5 |
-| Defense rate | 83.3% |
+| Malicious cases | 7 |
+| Attacks blocked or contained | 6 |
+| Defense rate | 85.7% |
 | Known bypasses | 1 |
 | Legitimate cases | 5 |
 | False positives | 1 |
@@ -84,8 +87,9 @@ These numbers measure only the included documented cases. They are not a general
 app/page.tsx                     interactive attack-replay interface
 lib/security/types.ts            trust, task, action and audit types
 lib/security/policy-engine.ts    deterministic authorization policies
+lib/security/novelty-detector.ts behavior-drift detection for unknown attacks
 lib/security/secret-scanner.ts   direct and encoded secret checks
-lib/security/scenarios.ts        three headline attack fixtures
+lib/security/scenarios.ts        four headline attack fixtures
 lib/security/evaluation.ts       attack and legitimate-request evaluation set
 tests/policy-engine.test.ts      security regression tests
 THREAT_MODEL.md                  attacker, assets, boundaries and exclusions
@@ -100,8 +104,16 @@ Each proposed action includes:
 - A relevance score for that task.
 - Data lineage describing the source, trust level, and sensitivity of influencing data.
 - Destination, execution-budget, and memory-impact metadata when applicable.
+- An optional behavior fingerprint for detecting unseen execution patterns without an attack signature.
 
-The engine returns `allow`, `approval_required`, `observe`, or `block`, plus machine-readable findings. Hard policies take priority over aggregate scores.
+The engine returns `allow`, `approval_required`, `observe`, or `block`, plus machine-readable findings. Hard policies take priority over aggregate scores. `approval_required` is deliberately human-in-the-loop: AgentShield recommends containment but the SOC analyst owns the decision.
+
+## Design references
+
+- [OWASP's Agentic AI guidance](https://genai.owasp.org/resource/agentic-ai-threats-and-mitigations/) recommends goal-consistency validation, anomaly detection on decision workflows, and risk-prioritized human review.
+- [Microsoft's Security Copilot guidance](https://learn.microsoft.com/en-us/copilot/security/rai-faqs-security-copilot-agents) describes SOC copilots as triage and investigation aids that provide transparent reasoning and guided response so analysts can review and override conclusions.
+
+These references informed the product direction; the policy engine, fixtures, evaluation, and interface in this repository were implemented during the hackathon.
 
 ## Threat model and limitations
 

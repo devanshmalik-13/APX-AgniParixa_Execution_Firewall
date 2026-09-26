@@ -7,11 +7,11 @@ Execution: deterministic local fixtures
 
 ## Results
 
-- 11 total cases
-- 6 malicious cases
-- 5 malicious cases blocked or contained
+- 12 total cases
+- 7 malicious cases
+- 6 malicious cases blocked or contained
 - 1 successful bypass
-- 83.3% defense rate
+- 85.7% defense rate
 - 5 legitimate cases
 - 1 legitimate case blocked
 - 20% false-positive rate
@@ -25,6 +25,7 @@ Execution: deterministic local fixtures
 - Out-of-scope shell-tool escalation
 - External prompt pivot
 - Obfuscated semantic secret leakage
+- Unknown attack shape detected through tool-sequence and data-flow novelty
 
 ## Failure analysis
 

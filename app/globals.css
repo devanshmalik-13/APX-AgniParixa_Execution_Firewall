@@ -68,6 +68,18 @@ button:disabled { cursor: wait; }
 
 .route-dot { filter: drop-shadow(0 0 9px #c8f560); }
 
+.soc-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+
+.soc-scrollbar::-webkit-scrollbar { width: 6px; }
+.soc-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.soc-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
 }

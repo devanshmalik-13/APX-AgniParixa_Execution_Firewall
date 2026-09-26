@@ -1,4 +1,5 @@
 import { scanForSecrets } from "./secret-scanner";
+import { detectBehaviorNovelty } from "./novelty-detector";
 import type {
   ActionRequest,
   EnforcementMode,
@@ -37,6 +38,7 @@ export function evaluateAction(
   const sensitiveSources = action.requestedBy.filter((source) => ["confidential", "secret"].includes(source.sensitivity));
   const secretMatches = scanForSecrets(action.content);
   const externalDestination = outsideAllowedDestinations(action.destination, task.allowedDestinations);
+  const novelty = detectBehaviorNovelty(task, action);
 
   if (!task.allowedTools.includes(action.tool)) {
     findings.push({
@@ -117,6 +119,23 @@ export function evaluateAction(
       score: 100,
       hardBlock: true,
       evidence: { currentIteration: action.currentIteration, maximum: policy.maxIterations },
+    });
+  }
+
+  if (novelty) {
+    findings.push({
+      id: "novel-behavior",
+      title: "Execution behavior is novel for this task",
+      description: novelty.explanation,
+      severity: "high",
+      // Novelty alone requests human review; it does not prove maliciousness.
+      score: 45,
+      hardBlock: false,
+      evidence: {
+        noveltyScore: novelty.score,
+        fingerprint: novelty.fingerprint,
+        signals: novelty.signals.map((signal) => signal.id),
+      },
     });
   }
 

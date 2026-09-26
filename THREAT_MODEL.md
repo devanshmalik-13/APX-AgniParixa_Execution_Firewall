@@ -14,6 +14,7 @@ An external sender or low-trust contributor who can control an email, uploaded d
 - Exfiltrate mock secrets to an unauthorized destination.
 - Persist a false authorization fact in agent memory.
 - cause an unbounded loop and resource-consumption incident.
+- Evade known signatures while combining individually allowed tools into a previously unseen harmful sequence.
 
 ## Trust boundaries
 
@@ -21,12 +22,14 @@ An external sender or low-trust contributor who can control an email, uploaded d
 2. The model proposes actions but cannot execute tools directly.
 3. AgentShield evaluates each action against the trusted task, capability allowlists, data lineage, egress policy, and execution budgets.
 4. Only allowed actions reach the mock tool executor.
+5. Novel execution fingerprints are held for analyst approval rather than automatically labelled malicious.
 
 ## Out of scope
 
 - Model-weight poisoning and training-time attacks.
 - Side channels in real email, operating-system, and cloud integrations.
 - Perfect semantic classification of task relevance.
+- Guaranteed detection of unknown attacks; Behavior Drift only detects measurable deviation from the configured baseline.
 - Tools that execute outside the AgentShield gateway.
 - A guarantee against every obfuscation or unknown secret format.
 

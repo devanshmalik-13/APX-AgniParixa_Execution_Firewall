@@ -29,6 +29,12 @@ export interface ActionRequest {
   taskRelevance: number;
   changesAuthorization?: boolean;
   currentIteration?: number;
+  behavior?: {
+    toolSequence: string[];
+    destinationSeenBefore: boolean;
+    argumentShapeSeenBefore: boolean;
+    sensitiveSourceCount: number;
+  };
 }
 
 export interface PolicyFinding {
