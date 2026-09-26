@@ -29,6 +29,8 @@ import { evaluationCases } from "@/lib/security/evaluation";
 import { attackScenarios, demoTask } from "@/lib/security/scenarios";
 import type { GatewayResponse, ToolExecutionResult } from "@/lib/security/types";
 import type { PromptRecord, StoredRun } from "@/lib/security/run-store";
+import { attackLevels, actorForScenario, demoActors, promptForLevel, proposeAction, type AttackLevel } from "@/lib/security/attack-lab";
+import { AuditExplorer } from "@/components/audit-explorer";
 
 type Mode = "unprotected" | "observe" | "enforce";
 
@@ -53,6 +55,9 @@ type AuditData = {
 export default function Home() {
   const [mode, setMode] = useState<Mode>("enforce");
   const [scenarioId, setScenarioId] = useState(attackScenarios[0].id);
+  const [attackLevel, setAttackLevel] = useState<AttackLevel>("easy");
+  const [actorId, setActorId] = useState<string>(actorForScenario(attackScenarios[0].id).id);
+  const [auditRefreshKey, setAuditRefreshKey] = useState(0);
   const [running, setRunning] = useState(false);
   const [analystDecision, setAnalystDecision] = useState<AnalystDecision>("pending");
   const [gatewayResponse, setGatewayResponse] = useState<GatewayResponse | null>(null);
@@ -64,7 +69,8 @@ export default function Home() {
   const [suiteError, setSuiteError] = useState("");
   const incidentPanelRef = useRef<HTMLElement>(null);
   const scenario = attackScenarios.find((item) => item.id === scenarioId) ?? attackScenarios[0];
-  const previewEvaluation = useMemo(() => evaluateAction(demoTask, scenario.action, mode), [mode, scenario]);
+  const proposedAction = useMemo(() => proposeAction(scenarioId, attackLevel, promptText), [scenarioId, attackLevel, promptText]);
+  const previewEvaluation = useMemo(() => evaluateAction(demoTask, proposedAction, mode), [mode, proposedAction]);
   const evaluation = gatewayResponse?.evaluation ?? previewEvaluation;
   const decision = {
     label: evaluation.decision === "block" ? "Blocked" : evaluation.decision === "observe" ? "Observed" : evaluation.decision === "approval_required" ? "Approval required" : "Allowed",
@@ -98,6 +104,7 @@ export default function Home() {
     const response = await fetch("/api/audit", { cache: "no-store" });
     if (!response.ok) throw new Error("Stored prompt logs are temporarily unavailable.");
     setAuditData(await response.json() as AuditData);
+    setAuditRefreshKey((value) => value + 1);
   }
 
   useEffect(() => {
@@ -124,6 +131,8 @@ export default function Home() {
     setGatewayError("");
     setPromptText(next.prompt);
     setPayloadText(JSON.stringify(next.action, null, 2));
+    setAttackLevel("easy");
+    setActorId(actorForScenario(id).id);
   }
 
   function selectMode(nextMode: Mode) {
@@ -133,7 +142,7 @@ export default function Home() {
     setGatewayError("");
   }
 
-  async function submitToGateway(action = scenario.action) {
+  async function submitToGateway(action = proposedAction) {
     setRunning(true);
     setGatewayError("");
     setAnalystDecision("pending");
@@ -141,7 +150,7 @@ export default function Home() {
       const response = await fetch("/api/gateway", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mode, prompt: promptText, scenarioId: scenario.id, action }),
+        body: JSON.stringify({ mode, prompt: promptText, scenarioId: scenario.id, attackLevel, actorId, action }),
       });
       const result = await response.json() as GatewayResponse & { error?: string };
       if (!response.ok) throw new Error(result.error ?? "Gateway rejected the request envelope.");
@@ -204,8 +213,8 @@ export default function Home() {
             <ShieldCheck className="size-[18px] text-[#c8f560]" />
           </div>
           <div>
-            <div className="text-[15px] font-semibold tracking-[-0.01em]">AgentShield</div>
-            <div className="text-[11px] text-white/40">SOC decision support · Human-led response</div>
+            <div className="text-[15px] font-semibold tracking-[-0.01em]">APX</div>
+            <div className="text-[11px] text-white/40">AgniParixa Execution Firewall</div>
           </div>
         </div>
 
@@ -243,7 +252,7 @@ export default function Home() {
               <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">
                 <Activity className="size-3.5" /> {gatewayResponse ? "Recorded execution trace" : "Execution preview"}
               </div>
-              <h1 className="max-w-xl text-[clamp(1.65rem,3vw,2.7rem)] font-medium leading-[1.05] tracking-[-0.045em]">Trace the intent.<br />Stop the impact.</h1>
+              <h1 className="max-w-xl text-[clamp(1.65rem,3vw,2.7rem)] font-medium leading-[1.05] tracking-[-0.045em]">Every AI action<br />must pass through AgniParixa.</h1>
               <div className="soc-scrollbar mt-4 flex max-w-full gap-2 overflow-x-auto whitespace-nowrap pb-2">
                 {attackScenarios.map((item, index) => (
                   <button
@@ -292,7 +301,7 @@ export default function Home() {
 
             <div className="absolute left-[53%] top-[10%] hidden w-[206px] rounded-2xl border border-white/[0.08] bg-[#101418]/90 p-4 shadow-2xl backdrop-blur-xl md:block">
               <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30">{isUnknown ? "Behavior drift" : isToolEscalation ? "Capability check" : "Task boundary"}</div>
-              <div className="text-sm font-medium">{isUnknown ? `${String(noveltyFinding?.evidence.noveltyScore ?? 0)}/100 novelty` : isToolEscalation ? "Tool not granted" : `${Math.round(scenario.action.taskRelevance * 100)}% relevance`}</div>
+              <div className="text-sm font-medium">{isUnknown ? `${String(noveltyFinding?.evidence.noveltyScore ?? 0)}/100 novelty` : isToolEscalation ? "Tool not granted" : `${Math.round(proposedAction.taskRelevance * 100)}% relevance`}</div>
               <p className="mt-1 text-xs leading-relaxed text-white/42">{scenario.summary}</p>
               {isUnknown && <div className="mt-3 border-t border-white/[0.07] pt-2 font-mono text-[9px] uppercase tracking-wider text-[#f4b860]">Known signature: none</div>}
             </div>
@@ -337,13 +346,20 @@ export default function Home() {
           </div>
 
           <div className="mt-4 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
+            <div className="mb-3 flex items-center justify-between gap-2"><span className="text-[11px] font-medium text-white/60">Attack level</span><span className="text-[10px] text-white/30">Subtlety, not guaranteed success</span></div>
+            <div className="grid grid-cols-4 gap-1 rounded-xl border border-white/[0.07] bg-black/20 p-1">{attackLevels.map((level) => <button key={level} onClick={() => { setAttackLevel(level); setPromptText(promptForLevel(scenarioId, level)); setGatewayResponse(null); }} className={`rounded-lg px-1 py-2 text-[10px] font-medium capitalize transition ${attackLevel === level ? "bg-[#c8f560]/15 text-[#d9ff77]" : "text-white/35 hover:text-white/70"}`}>{level}</button>)}</div>
+            <div className="mt-3 flex items-center justify-between gap-3"><label htmlFor="demo-actor" className="text-[10px] text-white/40">Synthetic user</label><select id="demo-actor" value={actorId} onChange={(event) => setActorId(event.target.value)} className="rounded-lg border border-white/[0.08] bg-[#151a1d] px-2 py-1.5 text-[11px] text-white/70">{demoActors.map((actor) => <option key={actor.id} value={actor.id}>{actor.name}</option>)}</select></div>
+            <div className="my-4 border-t border-white/[0.06]" />
             <div className="mb-2 flex items-center justify-between">
               <label htmlFor="attack-prompt" className="text-[11px] font-medium text-white/60">Prompt / untrusted content</label>
               <span className="text-[10px] text-white/30">Stored verbatim on submit</span>
             </div>
             <textarea id="attack-prompt" value={promptText} onChange={(event) => setPromptText(event.target.value)} maxLength={10_000} spellCheck={false} className="soc-scrollbar min-h-24 w-full resize-y rounded-xl border border-white/[0.07] bg-black/20 p-3 text-xs leading-relaxed text-white/75 outline-none focus:border-[#c8f560]/35" />
-            <p className="mt-2 text-[10px] leading-relaxed text-white/35">Synthetic sandbox data only. Edit this text and the action envelope to test your own attempt.</p>
+            <p className="mt-2 text-[10px] leading-relaxed text-white/35">Edit freely. A deterministic mock agent extracts supported intents into the proposed tool action; use the action inspector for exact payloads. Unknown wording may be missed.</p>
+            <div className="mt-3 rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2 font-mono text-[10px] text-white/45">Proposal → {proposedAction.tool}.{proposedAction.operation} · {proposedAction.destination ?? String(proposedAction.arguments.path ?? proposedAction.arguments.tenantId ?? "scoped")}</div>
           </div>
+
+          <div className="mt-4 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">Attack flow</div><div className="mt-3 space-y-2 text-[11px]">{[["01", "Untrusted input", "Editable prompt enters sandbox"], ["02", "Mock agent proposal", `${proposedAction.tool}.${proposedAction.operation}`], ["03", "Policy gateway", `${evaluation.findings.length} findings · ${evaluation.decision}`], ["04", "Tool boundary", gatewayResponse ? gatewayResponse.execution.executed ? "Mock action executed" : "Action held" : "Awaiting run"], ["05", "SOC audit", gatewayResponse ? "Receipt stored for analyst" : "Prompt and receipt on run"]].map(([number, title, subtitle]) => <div key={number} className="flex gap-3"><span className="font-mono text-[#c8f560]/60">{number}</span><span><b className="block font-medium text-white/70">{title}</b><span className="text-[10px] text-white/35">{subtitle}</span></span></div>)}</div></div>
 
           <div className="mt-7 flex items-center justify-between">
             <h3 className="text-sm font-medium">Evidence trail</h3>
@@ -359,7 +375,7 @@ export default function Home() {
             </div>
             <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-[10px]">
               <div><span className="block text-white/28">Tenant</span><b className="mt-0.5 block font-mono font-medium text-white/65">{demoTask.tenantId}</b></div>
-              <div><span className="block text-white/28">Proposed tool</span><b className="mt-0.5 block font-mono font-medium text-white/65">{scenario.action.tool}</b></div>
+              <div><span className="block text-white/28">Proposed tool</span><b className="mt-0.5 block font-mono font-medium text-white/65">{proposedAction.tool}</b></div>
               <div><span className="block text-white/28">Data scope</span><b className="mt-0.5 block font-mono font-medium text-white/65">task-bound</b></div>
               <div><span className="block text-white/28">Expiry</span><b className="mt-0.5 block font-mono font-medium text-white/65">demo task · 2099</b></div>
             </div>
@@ -430,8 +446,9 @@ export default function Home() {
             </div>
             <button onClick={runSuite} disabled={suiteRunning} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#c8f560] px-4 py-3 text-xs font-semibold text-[#11150c] transition hover:bg-[#d9ff77] disabled:opacity-55"><FlaskConical className="size-4" />{suiteRunning ? `Running all ${evaluationCases.length} cases…` : `Run ${evaluationCases.length}-case attack bench`}</button>
             {suiteError && <p className="mt-2 text-[10px] text-[#ff8064]">{suiteError}</p>}
+            <AuditExplorer refreshKey={auditRefreshKey} />
             <Dialog>
-              <DialogTrigger asChild><button className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.09] bg-white/[0.04] py-3 text-xs font-medium text-white/72 transition hover:bg-white/[0.07]"><History className="size-3.5" /> Review prompt and run log</button></DialogTrigger>
+              <DialogTrigger asChild><button className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.09] bg-white/[0.04] py-3 text-xs font-medium text-white/42 transition hover:bg-white/[0.07]"><History className="size-3.5" /> Recent raw list</button></DialogTrigger>
               <DialogContent className="max-h-[82vh] overflow-auto border-white/[0.1] bg-[#0d1114] text-white sm:max-w-3xl">
                 <DialogHeader><DialogTitle>Prompt and execution log</DialogTitle><DialogDescription>Stored in the private sandbox database, including rejected prompt submissions. Recent 200 entries shown.</DialogDescription></DialogHeader>
                 <a href="/api/audit/export" download className="inline-flex self-start rounded-lg border border-white/[0.09] bg-white/[0.04] px-3 py-2 text-xs text-[#c8f560] hover:bg-white/[0.07]">Download full JSON log</a>

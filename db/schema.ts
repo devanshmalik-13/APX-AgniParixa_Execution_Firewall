@@ -9,6 +9,9 @@ export const promptEvents = sqliteTable("prompt_events", {
   groundTruth: text("ground_truth").notNull(),
   status: text("status").notNull(),
   error: text("error"),
+  actorId: text("actor_id").notNull().default("legacy"),
+  actorName: text("actor_name").notNull().default("Earlier demo runs"),
+  attackLevel: text("attack_level"),
 });
 
 export const auditRuns = sqliteTable("audit_runs", {

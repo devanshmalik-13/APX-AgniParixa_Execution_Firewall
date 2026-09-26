@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AgentShield — Runtime Security for AI Agents",
-  description: "Trace intent, enforce task boundaries, and stop unsafe AI agent actions before impact.",
+  title: "APX — AgniParixa Execution Firewall",
+  description: "Every AI action must pass through AgniParixa. Enforce task boundaries and stop unsafe agent actions before impact.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

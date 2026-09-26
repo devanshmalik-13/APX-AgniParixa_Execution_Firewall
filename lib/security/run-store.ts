@@ -16,6 +16,9 @@ export interface PromptRecord {
   groundTruth: GroundTruth;
   status: string;
   error: string | null;
+  actorId: string;
+  actorName: string;
+  attackLevel: string | null;
 }
 
 export interface StoredRun {
@@ -33,6 +36,9 @@ export interface StoredRun {
   source: string;
   scenarioId: string | null;
   groundTruth: GroundTruth;
+  actorId: string;
+  actorName: string;
+  attackLevel: string | null;
 }
 
 export interface RunMetrics {
@@ -60,6 +66,9 @@ export async function recordPrompt(input: {
   source: "benchmark" | "replay" | "custom";
   scenarioId?: string;
   groundTruth?: GroundTruth;
+  actorId?: string;
+  actorName?: string;
+  attackLevel?: string;
 }): Promise<PromptRecord> {
   const row: PromptRecord = {
     id: crypto.randomUUID(),
@@ -70,10 +79,13 @@ export async function recordPrompt(input: {
     groundTruth: input.groundTruth ?? "unknown",
     status: "received",
     error: null,
+    actorId: input.actorId ?? "legacy",
+    actorName: input.actorName ?? "Earlier demo runs",
+    attackLevel: input.attackLevel ?? null,
   };
   await database().prepare(
-    "INSERT INTO prompt_events (id, created_at, prompt, source, scenario_id, ground_truth, status, error) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-  ).bind(row.id, row.createdAt, row.prompt, row.source, row.scenarioId, row.groundTruth, row.status, row.error).run();
+    "INSERT INTO prompt_events (id, created_at, prompt, source, scenario_id, ground_truth, status, error, actor_id, actor_name, attack_level) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  ).bind(row.id, row.createdAt, row.prompt, row.source, row.scenarioId, row.groundTruth, row.status, row.error, row.actorId, row.actorName, row.attackLevel).run();
   return row;
 }
 
@@ -118,16 +130,56 @@ export async function recordRun(
 
 export async function listPromptRecords(limit = 100): Promise<PromptRecord[]> {
   const { results } = await database().prepare(
-    "SELECT id, created_at AS createdAt, prompt, source, scenario_id AS scenarioId, ground_truth AS groundTruth, status, error FROM prompt_events ORDER BY created_at DESC, id DESC LIMIT ?",
+    "SELECT id, created_at AS createdAt, prompt, source, scenario_id AS scenarioId, ground_truth AS groundTruth, status, error, actor_id AS actorId, actor_name AS actorName, attack_level AS attackLevel FROM prompt_events ORDER BY created_at DESC, id DESC LIMIT ?",
   ).bind(Math.min(Math.max(limit, 1), 500)).all<PromptRecord>();
   return results;
 }
 
 export async function listRuns(limit = 100): Promise<StoredRun[]> {
   const { results } = await database().prepare(
-    "SELECT r.id, r.prompt_id AS promptId, r.created_at AS createdAt, r.mode, r.action_id AS actionId, r.decision, r.executed, r.risk_score AS riskScore, r.analyst_verdict AS analystVerdict, r.receipt_hash AS receiptHash, p.prompt, p.source, p.scenario_id AS scenarioId, p.ground_truth AS groundTruth FROM audit_runs r JOIN prompt_events p ON p.id = r.prompt_id ORDER BY r.created_at DESC, r.id DESC LIMIT ?",
+    "SELECT r.id, r.prompt_id AS promptId, r.created_at AS createdAt, r.mode, r.action_id AS actionId, r.decision, r.executed, r.risk_score AS riskScore, r.analyst_verdict AS analystVerdict, r.receipt_hash AS receiptHash, p.prompt, p.source, p.scenario_id AS scenarioId, p.ground_truth AS groundTruth, p.actor_id AS actorId, p.actor_name AS actorName, p.attack_level AS attackLevel FROM audit_runs r JOIN prompt_events p ON p.id = r.prompt_id ORDER BY r.created_at DESC, r.id DESC LIMIT ?",
   ).bind(Math.min(Math.max(limit, 1), 500)).all<StoredRun>();
   return results.map((row) => ({ ...row, executed: Boolean(row.executed) }));
+}
+
+export interface ActorSummary { actorId: string; actorName: string; total: number; flagged: number; latestAt: string }
+export interface ActorLog extends PromptRecord { runId: string | null; decision: string | null; riskScore: number | null; executed: boolean | null; analystVerdict: string | null }
+
+export async function listActorSummaries(): Promise<ActorSummary[]> {
+  const { results } = await database().prepare(`
+    SELECT p.actor_id AS actorId, MAX(p.actor_name) AS actorName, COUNT(*) AS total,
+      SUM(CASE WHEN r.decision IN ('block', 'approval_required') OR p.status = 'rejected' THEN 1 ELSE 0 END) AS flagged,
+      MAX(p.created_at) AS latestAt
+    FROM prompt_events p LEFT JOIN audit_runs r ON r.prompt_id = p.id
+    GROUP BY p.actor_id ORDER BY flagged DESC, total DESC, latestAt DESC
+  `).all<ActorSummary>();
+  return results;
+}
+
+export async function listActorLogs(actorId: string, page: number): Promise<{ logs: ActorLog[]; total: number }> {
+  const db = database();
+  const offset = Math.max(0, page) * 50;
+  const [rows, count] = await Promise.all([
+    db.prepare(`SELECT p.id, p.created_at AS createdAt, p.prompt, p.source, p.scenario_id AS scenarioId,
+      p.ground_truth AS groundTruth, p.status, p.error, p.actor_id AS actorId, p.actor_name AS actorName,
+      p.attack_level AS attackLevel, r.id AS runId, r.decision, r.risk_score AS riskScore,
+      r.executed, r.analyst_verdict AS analystVerdict
+      FROM prompt_events p LEFT JOIN audit_runs r ON r.prompt_id = p.id
+      WHERE p.actor_id = ? ORDER BY p.created_at DESC, p.rowid DESC LIMIT 50 OFFSET ?`)
+      .bind(actorId, offset).all<ActorLog>(),
+    db.prepare("SELECT COUNT(*) AS total FROM prompt_events WHERE actor_id = ?").bind(actorId).first<{ total: number }>(),
+  ]);
+  return { logs: rows.results.map((row) => ({ ...row, executed: row.executed === null ? null : Boolean(row.executed) })), total: count?.total ?? 0 };
+}
+
+export async function getPromptDetail(id: string) {
+  return database().prepare(`SELECT p.id, p.created_at AS createdAt, p.prompt, p.source, p.scenario_id AS scenarioId,
+    p.ground_truth AS groundTruth, p.status, p.error, p.actor_id AS actorId, p.actor_name AS actorName,
+    p.attack_level AS attackLevel, r.id AS runId, r.mode, r.decision, r.risk_score AS riskScore,
+    r.executed, r.analyst_verdict AS analystVerdict, r.receipt_hash AS receiptHash,
+    r.action_json AS actionJson, r.evaluation_json AS evaluationJson, r.execution_json AS executionJson
+    FROM prompt_events p LEFT JOIN audit_runs r ON r.prompt_id = p.id WHERE p.id = ?`)
+    .bind(id).first();
 }
 
 export async function getRunMetrics(): Promise<RunMetrics> {
@@ -162,7 +214,7 @@ export async function exportAllAuditRecords(): Promise<{ prompts: PromptRecord[]
   const prompts: PromptRecord[] = [];
   let promptCursor = 0;
   while (true) {
-    const batch = await db.prepare("SELECT rowid AS cursor, id, created_at AS createdAt, prompt, source, scenario_id AS scenarioId, ground_truth AS groundTruth, status, error FROM prompt_events WHERE rowid > ? ORDER BY rowid ASC LIMIT 500")
+    const batch = await db.prepare("SELECT rowid AS cursor, id, created_at AS createdAt, prompt, source, scenario_id AS scenarioId, ground_truth AS groundTruth, status, error, actor_id AS actorId, actor_name AS actorName, attack_level AS attackLevel FROM prompt_events WHERE rowid > ? ORDER BY rowid ASC LIMIT 500")
       .bind(promptCursor).all<PromptRecord & { cursor: number }>();
     prompts.push(...batch.results);
     if (batch.results.length < 500) break;
@@ -171,7 +223,7 @@ export async function exportAllAuditRecords(): Promise<{ prompts: PromptRecord[]
   const runs: Array<StoredRun & { actionJson: string; evaluationJson: string; executionJson: string }> = [];
   let runCursor = 0;
   while (true) {
-    const batch = await db.prepare("SELECT r.rowid AS cursor, r.id, r.prompt_id AS promptId, r.created_at AS createdAt, r.mode, r.action_id AS actionId, r.action_json AS actionJson, r.evaluation_json AS evaluationJson, r.execution_json AS executionJson, r.decision, r.executed, r.risk_score AS riskScore, r.analyst_verdict AS analystVerdict, r.receipt_hash AS receiptHash, p.prompt, p.source, p.scenario_id AS scenarioId, p.ground_truth AS groundTruth FROM audit_runs r JOIN prompt_events p ON p.id = r.prompt_id WHERE r.rowid > ? ORDER BY r.rowid ASC LIMIT 500")
+    const batch = await db.prepare("SELECT r.rowid AS cursor, r.id, r.prompt_id AS promptId, r.created_at AS createdAt, r.mode, r.action_id AS actionId, r.action_json AS actionJson, r.evaluation_json AS evaluationJson, r.execution_json AS executionJson, r.decision, r.executed, r.risk_score AS riskScore, r.analyst_verdict AS analystVerdict, r.receipt_hash AS receiptHash, p.prompt, p.source, p.scenario_id AS scenarioId, p.ground_truth AS groundTruth, p.actor_id AS actorId, p.actor_name AS actorName, p.attack_level AS attackLevel FROM audit_runs r JOIN prompt_events p ON p.id = r.prompt_id WHERE r.rowid > ? ORDER BY r.rowid ASC LIMIT 500")
       .bind(runCursor).all<StoredRun & { cursor: number; actionJson: string; evaluationJson: string; executionJson: string }>();
     runs.push(...batch.results.map((row) => ({ ...row, executed: Boolean(row.executed) })));
     if (batch.results.length < 500) break;

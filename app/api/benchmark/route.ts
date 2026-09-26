@@ -3,6 +3,7 @@ import { evaluationCases } from "@/lib/security/evaluation";
 import { runGateway } from "@/lib/security/gateway";
 import { demoTask } from "@/lib/security/scenarios";
 import { recordPrompt } from "@/lib/security/run-store";
+import { actorForScenario } from "@/lib/security/attack-lab";
 
 export async function POST() {
   try {
@@ -13,6 +14,9 @@ export async function POST() {
         source: "benchmark",
         scenarioId: testCase.id,
         groundTruth: testCase.malicious ? "attack" : "legitimate",
+        actorId: actorForScenario(testCase.id).id,
+        actorName: actorForScenario(testCase.id).name,
+        attackLevel: "easy",
       });
       const run = await runGateway(demoTask, testCase.action, "enforce", prompt.id);
       results.push({
