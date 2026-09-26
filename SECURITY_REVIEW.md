@@ -12,6 +12,9 @@ This is a hackathon prototype, not a production agent firewall. The working targ
 | Production bundle | Passed (`npm run build`) |
 | 16-case adversarial benchmark | 10/11 attacks contained; 1/5 legitimate cases blocked (`npm run evaluate`) |
 | Live local HTTP replay | Custom request claiming trusted retrieval and `unprotected` was forced to `enforce`, downgraded to untrusted, blocked before email dispatch, and persisted in D1 with its credential redacted. |
+| Live allow and approval paths | Scoped document read executed and finalized in D1. Novel action was held for approval; one analyst approval executed the exact mock action, and a duplicate approval returned HTTP 409. |
+| Live benchmark API | 16 cases persisted in D1; 10/11 attacks contained and 1/5 legitimate actions contained, matching the CLI evaluation. |
+| Production dependency audit | `npm audit --package-lock-only --omit=dev --audit-level=moderate` found 0 vulnerabilities after refreshing the patched transitive package. |
 
 The measured 90.9% containment and 20% false-positive rates apply only to this fixed, documented case set. The benchmark is deterministic, not a statistical estimate of unseen attacks. Some redaction and database behavior is verified by live replay, but D1 fault injection and concurrency are not automated tests.
 
