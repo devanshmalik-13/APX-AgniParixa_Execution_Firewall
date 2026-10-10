@@ -21,6 +21,16 @@ const scenarios: { value: Scenario; title: string; description: string }[] = [
   { value: "duplicate-refund", title: "Repeated refund", description: "Two refund actions attempt to pay the same request twice." },
 ];
 
+const workspacePanels = [
+  { id: "inbox", label: "Inbox", icon: Inbox },
+  { id: "planner", label: "Planner", icon: Sparkles },
+  { id: "review", label: "Review", icon: ShieldCheck },
+  { id: "permissions", label: "Permissions", icon: LockKeyhole },
+  { id: "trace", label: "Trace", icon: Database },
+  { id: "activity", label: "Activity", icon: Clock3 },
+] as const;
+type WorkspacePanel = typeof workspacePanels[number]["id"];
+
 function money(cents: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
 }
@@ -45,6 +55,10 @@ async function readResponse<T>(response: Response): Promise<T> {
 }
 
 export function SupportWorkspace() {
+  const [panel, setPanel] = useState<WorkspacePanel>("inbox");
+  const [dockPinned, setDockPinned] = useState(false);
+  const panelHeadingRef = useRef<HTMLHeadingElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const [dashboard, setDashboard] = useState<SupportDashboard | null>(null);
   const [ticketId, setTicketId] = useState("");
   const [plan, setPlan] = useState<SupportPlan | null>(null);
@@ -62,6 +76,10 @@ export function SupportWorkspace() {
   const locked = useRef(false);
   const reviewRef = useRef<HTMLElement>(null);
   const plannerRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    viewportRef.current?.scrollTo({ top: 0 });
+  }, [panel]);
 
   async function loadDashboard(signal?: AbortSignal) {
     const next = await readResponse<SupportDashboard>(await fetch("/api/support", { cache: "no-store", signal }));
@@ -122,7 +140,7 @@ export function SupportWorkspace() {
     setApproved(false);
     setError("");
     setNotice("");
-    reviewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setPanel("review");
   }
 
   async function refresh() {
@@ -152,7 +170,7 @@ export function SupportWorkspace() {
         body: JSON.stringify({ ticketId, mode, scenario, profile, note: mode === "live" ? note.trim() || undefined : undefined }),
       }));
       setPlan(result.plan);
-      reviewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setPanel("review");
       setNotice("Plan staged. Review the proposed changes before executing them.");
       try { await loadDashboard(); } catch { setError("The plan was staged, but the history refresh failed. Retry refresh to retrieve durable records."); }
     } catch (failure) {
@@ -196,53 +214,27 @@ export function SupportWorkspace() {
   }
 
   return (
-    <main className="apx-workspace">
+    <main className="apx-workspace apx-focus">
       <header className="apx-header">
         <Link className="apx-brand" href="/" aria-label="APX support workspace">
           <span className="apx-brand-icon"><ShieldCheck size={23} strokeWidth={1.8} /></span>
           <span><b>APX<span className="apx-brand-dot">.</span></b><small>AUTHORIZED EXECUTION</small></span>
         </Link>
         <nav className="apx-nav" aria-label="Main navigation">
-          <Link href="/support" className="active"><Inbox size={15} /> Support workspace</Link>
+          
           <Link href="/lab"><FlaskConical size={15} /> Attack lab <ArrowRight size={13} /></Link>
         </nav>
         <span className="apx-environment"><span /> Sandbox environment</span>
       </header>
 
-      <div className="apx-shell">
-        <section className="apx-intro" aria-labelledby="workspace-title">
-          <div><div className="apx-eyebrow"><span /> THE SUPPORT AGENT WORKBENCH</div>
-            <h1 id="workspace-title">Useful agents. <span>Deliberate actions.</span></h1>
-            <p>Resolve a real support task. See every proposed change. Keep execution inside its permissions.</p>
-          </div>
-          <button className="apx-button apx-button-secondary apx-refresh" onClick={refresh} disabled={!!busy} aria-label="Refresh support workspace">
-            <RefreshCw size={14} className={busy === "refresh" ? "apx-spin" : ""} /> Refresh
-          </button>
-        </section>
-
-        <section className="apx-metrics" aria-label="Workspace activity">
-          <Stat icon={<Ticket size={16} />} label="Support tickets" value={dashboard ? String(dashboard.tickets.length) : "—"} detail="Customer-scoped requests" />
-          <Stat icon={<FileText size={16} />} label="Staged plans" value={dashboard ? String(dashboard.plans.filter((item) => item.status === "staged").length) : "—"} detail="Waiting for execution review" />
-          <Stat icon={<ShieldCheck size={16} />} label="Blocked proposals" value={dashboard ? String(dashboard.plans.reduce((total, item) => total + item.actions.filter((action) => action.decision === "block").length, 0)) : "—"} detail="Recorded across stored plans" />
-          <Stat icon={<RotateCcw size={16} />} label="Recovered plans" value={dashboard ? String(dashboard.plans.filter((item) => item.status === "recovered").length) : "—"} detail="Changes reversed with evidence" />
-        </section>
-
+      <div className="apx-shell apx-focus-shell">
+        <div className="apx-focus-toolbar"><div><span className="apx-section-label">SUPPORT WORKSPACE</span><h1 ref={panelHeadingRef} tabIndex={-1}>{workspacePanels.find(item => item.id === panel)?.label}</h1></div><div className="apx-focus-controls"><label className="apx-ticket-switch"><span className="apx-sr-only">Active customer request</span><select aria-label="Active customer request" value={ticketId} disabled={!!busy || !dashboard?.tickets.length} onChange={event => { const ticket = dashboard?.tickets.find(item => item.id === event.target.value); if (ticket) chooseTicket(ticket); }}>{!dashboard?.tickets.length && <option value="">Loading requests…</option>}{dashboard?.tickets.map(item => <option key={item.id} value={item.id}>{item.customerName} · {item.id}</option>)}</select></label><button className="apx-button apx-button-secondary" onClick={refresh} disabled={!!busy} aria-label="Refresh support workspace"><RefreshCw size={15} className={busy === "refresh" ? "apx-spin" : ""} /></button></div></div>
         <div className="apx-feedback" aria-live="polite" aria-atomic="true">
           {error && <div className="apx-alert apx-alert-error" role="alert"><ShieldCheck size={17} /><span>{error}{authRequired && <a className="apx-signin" href="/signin-with-chatgpt?return_to=/support">Sign in with ChatGPT <ArrowRight size={12} /></a>}</span><button onClick={() => setError("")} aria-label="Dismiss error"><X size={16} /></button></div>}
           {notice && <div className="apx-alert apx-alert-success"><Check size={17} /><span>{notice}</span><button onClick={() => setNotice("")} aria-label="Dismiss notification"><X size={16} /></button></div>}
         </div>
-
-        <nav className="apx-workflow-nav" aria-label="Workspace steps">
-          <a href="#ticket-queue"><span>01</span><div>Choose a request<small>Customer inbox</small></div><Inbox size={16} /></a>
-          <a href="#planner-title"><span>02</span><div>Propose a plan<small>Scenario & permissions</small></div><Sparkles size={16} /></a>
-          <a href="#review-title"><span>03</span><div>Review & execute<small>{plan ? `${plan.status} plan` : "Preview every change"}</small></div><ShieldCheck size={16} /></a>
-          <a href="#activity-title"><span>04</span><div>Inspect evidence<small>History & recovery</small></div><FileText size={16} /></a>
-        </nav>
-
-        <div className="apx-layout">
-          <div className="apx-primary">
-        <div className="apx-work-grid">
-          <aside id="ticket-queue" className="apx-ticket-panel apx-panel" aria-label="Support ticket queue">
+        <div className="apx-panel-viewport" ref={viewportRef}>
+          <div id="workspace-inbox" role="tabpanel" aria-labelledby="dock-inbox" hidden={panel !== "inbox"} className="apx-focus-view apx-view-inbox"><aside id="ticket-queue" className="apx-ticket-panel apx-panel" aria-label="Support ticket queue">
             <div className="apx-panel-heading"><div><span className="apx-section-label">01 / INBOX</span><h2>Customer requests</h2></div><span className="apx-counter">{dashboard?.tickets.length ?? "—"}</span></div>
             <div className="apx-queue">
               {busy === "loading" && !dashboard ? <LoadingState label="Loading ticket queue" /> : dashboard?.tickets.length ? dashboard.tickets.map((item, index) => (
@@ -255,9 +247,7 @@ export function SupportWorkspace() {
             </div>
             <div className="apx-queue-footer"><LockKeyhole size={14} /><span>Permissions come from trusted records. Ticket contents cannot expand them.</span></div>
           </aside>
-
-          <div className="apx-center">
-            <section className="apx-panel apx-source-panel" aria-labelledby="source-title">
+<section className="apx-panel apx-source-panel" aria-labelledby="source-title">
               <div className="apx-panel-heading"><div><span className="apx-section-label">02 / CONTEXT</span><h2 id="source-title">{selectedTicket?.subject ?? "Select a support ticket"}</h2></div><span className="apx-badge apx-badge-neutral">Untrusted source</span></div>
               {selectedTicket ? <>
                 <div className="apx-source-meta"><span><Mail size={13} />{selectedTicket.customerEmail}</span><span>{selectedTicket.invoiceId}</span></div>
@@ -265,8 +255,8 @@ export function SupportWorkspace() {
                 <div className="apx-invoice-strip"><span><small>Invoice amount</small><b>{invoice ? money(invoice.amountCents) : "Unavailable"}</b></span><span><small>Already refunded</small><b>{invoice ? money(invoice.refundedCents) : "—"}</b></span><span><small>Remaining refundable</small><b>{invoice ? money(Math.max(0, invoice.refundableCents - invoice.refundedCents)) : "—"}</b></span><span><small>Current state</small><b className="apx-capitalize">{invoice?.status ?? "—"}</b></span></div>
               </> : <p className="apx-empty-copy">Choose a ticket to inspect its source, invoice, and customer boundary.</p>}
             </section>
-
-            <section className="apx-panel apx-planner-panel" ref={plannerRef} aria-labelledby="planner-title">
+<button className="apx-button apx-button-primary apx-next" disabled={!!busy || !selectedTicket} onClick={() => setPanel("planner")}>Plan this request<ArrowRight size={15} /></button></div>
+          <div id="workspace-planner" role="tabpanel" aria-labelledby="dock-planner" hidden={panel !== "planner"} className="apx-focus-view apx-view-planner"><section className="apx-panel apx-planner-panel" ref={plannerRef} aria-labelledby="planner-title">
               <div className="apx-panel-heading"><div><span className="apx-section-label">03 / PROPOSE</span><h2 id="planner-title">Stage an action plan</h2></div><Sparkles size={19} className="apx-accent" /></div>
               <div className="apx-mode-group" role="group" aria-label="Agent planning mode">
                 <button onClick={() => setMode("replay")} disabled={!!busy} aria-pressed={mode === "replay"} className={mode === "replay" ? "selected" : ""}><FlaskConical size={14} /><span>Deterministic replay<small>Reproducible test proposals</small></span>{mode === "replay" && <Check size={15} />}</button>
@@ -280,15 +270,8 @@ export function SupportWorkspace() {
               {scenario !== "normal" && <details className="apx-injected-source"><summary><FileText size={12} />Inspect appended attack text<ChevronDown size={12} /></summary><pre>{scenarioContent[scenario].trim()}</pre><p>Live mode reads this as ticket content. Replay stages fixed adversarial proposals for the same scenario.</p></details>}
               <details className="apx-note"><summary>Additional customer context <span>live mode · optional</span></summary><label className="apx-field"><span className="apx-sr-only">Additional customer context</span><textarea value={note} onChange={(event) => setNote(event.target.value)} disabled={!!busy || mode === "replay"} maxLength={2000} placeholder="For example: explain the refund calculation in the reply." rows={3} /></label><p>Live mode treats this text as untrusted customer input. Replay uses fixed test proposals. Neither can widen the task grant.</p></details>
               <div className="apx-planner-footer"><span><LockKeyhole size={13} /> Staging makes no customer changes</span><button className="apx-button apx-button-primary" onClick={stage} disabled={!!busy || !selectedTicket}>{busy === "stage" ? <LoaderCircle size={15} className="apx-spin" /> : <Sparkles size={15} />}{busy === "stage" ? "Staging plan…" : "Stage plan"}<ArrowRight size={14} /></button></div>
-            </section>
-
-
-          </div>
-
-
-        </div>
-
-            <section className="apx-panel apx-review-panel" ref={reviewRef} aria-labelledby="review-title">
+            </section></div>
+          <div id="workspace-review" role="tabpanel" aria-labelledby="dock-review" hidden={panel !== "review"} className="apx-focus-view apx-view-review"><section className="apx-panel apx-review-panel" ref={reviewRef} aria-labelledby="review-title">
               <div className="apx-panel-heading"><div><span className="apx-section-label">04 / REVIEW & EXECUTE</span><h2 id="review-title">The change preview</h2></div>{plan && <span className={`apx-badge apx-badge-${plan.status}`}>{plan.status}</span>}</div>
               {plan ? <>
                 <div className="apx-plan-summary"><p>{plan.summary}</p><div><span>{plan.mode === "live" ? `Live · ${plan.model}` : "Deterministic test replay"}</span><span>{plan.latencyMs} ms</span><span>{timestamp(plan.createdAt)}</span></div></div>
@@ -311,32 +294,36 @@ export function SupportWorkspace() {
                   </div>
                   <p className="apx-flow-caption">Illustrated workflow · stage a plan to see real decisions.</p>
                 </div>
-                <div className="apx-scenario-library"><span className="apx-section-label">EXPLORE THE GUARDRAILS</span><h3>Pick a test scenario</h3><div className="apx-scenario-cards">{scenarios.map((item, index) => <button key={item.value} className={scenario === item.value ? "selected" : ""} aria-pressed={scenario === item.value} disabled={!!busy} onClick={() => { setScenario(item.value); setMode("replay"); plannerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }}><span>{String(index + 1).padStart(2, "0")}</span><div><b>{item.title}</b><small>{item.description}</small></div>{scenario === item.value ? <Check size={15} /> : <ArrowRight size={15} />}</button>)}</div></div>
+                <div className="apx-scenario-library"><span className="apx-section-label">EXPLORE THE GUARDRAILS</span><h3>Pick a test scenario</h3><div className="apx-scenario-cards">{scenarios.map((item, index) => <button key={item.value} className={scenario === item.value ? "selected" : ""} aria-pressed={scenario === item.value} disabled={!!busy} onClick={() => { setScenario(item.value); setMode("replay"); setPanel("planner"); }}><span>{String(index + 1).padStart(2, "0")}</span><div><b>{item.title}</b><small>{item.description}</small></div>{scenario === item.value ? <Check size={15} /> : <ArrowRight size={15} />}</button>)}</div></div>
               </div>}
-            </section>
-
-        <section className="apx-panel apx-activity" aria-labelledby="activity-title">
+            </section></div>
+          <div id="workspace-permissions" role="tabpanel" aria-labelledby="dock-permissions" hidden={panel !== "permissions"} className="apx-focus-view apx-view-permissions"><section className="apx-panel apx-grant-panel" aria-labelledby="grant-title"><div className="apx-panel-heading"><div><span className="apx-section-label">TRUSTED APPLICATION SCOPE</span><h2 id="grant-title">Task permission grant</h2></div><LockKeyhole size={18} className="apx-accent" /></div>
+              <div className="apx-grant-note"><ShieldCheck size={15} /><span>{plan ? "Derived on the server from this ticket's records." : "A grant is issued when the task is staged."}</span></div>
+              <dl className="apx-grant-list"><GrantRow label="Tenant" value={plan?.grant.tenantId ?? selectedTicket?.tenantId} /><GrantRow label="Customer" value={plan?.grant.customerId ?? selectedTicket?.customerId} /><GrantRow label="Invoice" value={plan?.grant.invoiceId ?? selectedTicket?.invoiceId} /><GrantRow label="Reply recipient" value={plan?.grant.recipient ?? selectedTicket?.customerEmail} /><GrantRow label="Refund maximum" value={plan ? money(plan.grant.maxRefundCents) : "Issued on staging"} /><GrantRow label="Without approval" value={plan ? money(Math.min(plan.grant.autoRefundCents, plan.grant.maxRefundCents)) : "Profile-dependent"} /><GrantRow label="Action budget" value={plan ? `${plan.grant.maxActions} actions` : "Issued on staging"} /><GrantRow label="Expires" value={plan ? timestamp(plan.grant.expiresAt) : "Short-lived grant"} /></dl>
+              <div className="apx-grant-boundary"><span className="apx-dot green" />One task. One customer. One invoice.</div>
+            </section></div>
+          <div id="workspace-trace" role="tabpanel" aria-labelledby="dock-trace" hidden={panel !== "trace"} className="apx-focus-view apx-view-trace"><section className="apx-panel apx-trace-panel" aria-labelledby="trace-title"><div className="apx-panel-heading"><div><span className="apx-section-label">OBSERVABLE EXECUTION</span><h2 id="trace-title">Tool trace</h2></div><span className="apx-counter">{plan?.trace.length ?? 0}</span></div>
+              {plan?.trace.length ? <ol className="apx-trace">{plan.trace.map((entry, index) => <li key={`${entry.step}-${index}`}><span className={`apx-trace-marker ${entry.decision.includes("block") ? "blocked" : entry.decision.includes("approval") ? "review" : ""}`}>{entry.decision.includes("block") ? <X size={11} /> : entry.decision.includes("approval") ? <LockKeyhole size={10} /> : <Check size={11} />}</span><div><div className="apx-trace-heading"><b>{entry.tool.replaceAll("_", " ")}</b><small>{entry.decision.replaceAll("_", " ")}</small></div><p>{entry.detail}</p></div></li>)}</ol> : <p className="apx-empty-copy">Agent reads and proposed tool calls appear here after staging.</p>}
+            </section></div>
+          <div id="workspace-activity" role="tabpanel" aria-labelledby="dock-activity" hidden={panel !== "activity"} className="apx-focus-view apx-view-activity"><section className="apx-metrics" aria-label="Workspace activity">
+          <Stat icon={<Ticket size={16} />} label="Support tickets" value={dashboard ? String(dashboard.tickets.length) : "—"} detail="Customer-scoped requests" />
+          <Stat icon={<FileText size={16} />} label="Staged plans" value={dashboard ? String(dashboard.plans.filter((item) => item.status === "staged").length) : "—"} detail="Waiting for execution review" />
+          <Stat icon={<ShieldCheck size={16} />} label="Blocked proposals" value={dashboard ? String(dashboard.plans.reduce((total, item) => total + item.actions.filter((action) => action.decision === "block").length, 0)) : "—"} detail="Recorded across stored plans" />
+          <Stat icon={<RotateCcw size={16} />} label="Recovered plans" value={dashboard ? String(dashboard.plans.filter((item) => item.status === "recovered").length) : "—"} detail="Changes reversed with evidence" />
+        </section>
+<section className="apx-panel apx-activity" aria-labelledby="activity-title">
           <div className="apx-activity-heading"><div><span className="apx-section-label">DURABLE EVIDENCE</span><h2 id="activity-title">Every decision leaves a record</h2></div><div className="apx-tabs" role="tablist" aria-label="Stored activity"><button role="tab" id="tab-history" aria-controls="activity-history" aria-selected={activityTab === "history"} onClick={() => setActivityTab("history")}>Plans <span>{dashboard?.plans.length ?? 0}</span></button><button role="tab" id="tab-outbox" aria-controls="activity-outbox" aria-selected={activityTab === "outbox"} onClick={() => setActivityTab("outbox")}>Sandbox outbox <span>{dashboard?.outbox.length ?? 0}</span></button><button role="tab" id="tab-audit" aria-controls="activity-audit" aria-selected={activityTab === "audit"} onClick={() => setActivityTab("audit")}>Audit trail <span>{dashboard?.events.length ?? 0}</span></button></div></div>
           <div role="tabpanel" id={`activity-${activityTab}`} aria-labelledby={`tab-${activityTab}`} className="apx-activity-content">
             {activityTab === "history" && (dashboard?.plans.length ? <div className="apx-history-list"><div className="apx-history-labels"><span>Task / plan</span><span>Agent mode</span><span>Created</span><span>State</span><span /></div>{dashboard.plans.map((item) => <button key={item.id} disabled={!!busy} className={`apx-history-row ${plan?.id === item.id ? "selected" : ""}`} onClick={() => choosePlan(item)}><span><b>{dashboard.tickets.find((ticket) => ticket.id === item.ticketId)?.customerName ?? item.ticketId}</b><small>{item.scenario.replaceAll("-", " ")} · {item.id}</small></span><span>{item.mode === "live" ? "Live model" : "Test replay"}</span><span>{timestamp(item.createdAt)}</span><span><span className={`apx-badge apx-badge-${item.status}`}>{item.status}</span></span><ArrowRight size={15} /></button>)}</div> : <EmptyState icon={<FileText size={23} />} title="No plans recorded yet" detail="Stage a task to create the first durable action plan." />)}
             {activityTab === "outbox" && <><p className="apx-outbox-disclaimer"><Mail size={14} /> Sandbox only. These messages are stored in the sandbox and are never delivered.</p>{dashboard?.outbox.length ? <div className="apx-outbox-list">{dashboard.outbox.map((message) => <details key={message.id} className="apx-outbox-item"><summary><Mail size={16} /><span><b>{message.subject}</b><small>To {message.to} · {timestamp(message.createdAt)}</small></span><span className={`apx-badge ${message.status === "cancelled" ? "apx-badge-rejected" : "apx-badge-staged"}`}>{message.status}</span><ChevronDown size={14} /></summary><div className="apx-message-body">{message.body}</div><div className="apx-outbox-plan"><code>{message.planId}</code><button className="apx-text-button" disabled={!!busy} onClick={() => { const found = dashboard.plans.find((item) => item.id === message.planId); if (found) choosePlan(found); }}>Review originating plan<ArrowRight size={12} /></button></div></details>)}</div> : <EmptyState icon={<Mail size={23} />} title="The sandbox outbox is empty" detail="Execute a permitted reply action to queue a message here." />}</>}
             {activityTab === "audit" && (dashboard?.events.length ? <div className="apx-audit-list">{dashboard.events.map((event) => <div className="apx-audit-row" key={event.id}><time>{timestamp(event.at)}</time><span className="apx-audit-dot" /><div><b>{event.event.replaceAll("_", " ")}</b><p>{event.detail}</p><button className="apx-text-button" disabled={!!busy} onClick={() => { const found = dashboard.plans.find((item) => item.id === event.planId); if (found) choosePlan(found); }}>{event.planId}<ArrowRight size={11} /></button></div></div>)}</div> : <EmptyState icon={<ShieldCheck size={23} />} title="No audit events yet" detail="Staging, execution, rejection, and recovery are recorded here." />)}
           </div>
-        </section>
-          </div>
-          <aside className="apx-right">
-            <section className="apx-panel apx-grant-panel" aria-labelledby="grant-title"><div className="apx-panel-heading"><div><span className="apx-section-label">TRUSTED APPLICATION SCOPE</span><h2 id="grant-title">Task permission grant</h2></div><LockKeyhole size={18} className="apx-accent" /></div>
-              <div className="apx-grant-note"><ShieldCheck size={15} /><span>{plan ? "Derived on the server from this ticket's records." : "A grant is issued when the task is staged."}</span></div>
-              <dl className="apx-grant-list"><GrantRow label="Tenant" value={plan?.grant.tenantId ?? selectedTicket?.tenantId} /><GrantRow label="Customer" value={plan?.grant.customerId ?? selectedTicket?.customerId} /><GrantRow label="Invoice" value={plan?.grant.invoiceId ?? selectedTicket?.invoiceId} /><GrantRow label="Reply recipient" value={plan?.grant.recipient ?? selectedTicket?.customerEmail} /><GrantRow label="Refund maximum" value={plan ? money(plan.grant.maxRefundCents) : "Issued on staging"} /><GrantRow label="Without approval" value={plan ? money(Math.min(plan.grant.autoRefundCents, plan.grant.maxRefundCents)) : "Profile-dependent"} /><GrantRow label="Action budget" value={plan ? `${plan.grant.maxActions} actions` : "Issued on staging"} /><GrantRow label="Expires" value={plan ? timestamp(plan.grant.expiresAt) : "Short-lived grant"} /></dl>
-              <div className="apx-grant-boundary"><span className="apx-dot green" />One task. One customer. One invoice.</div>
-            </section>
-            <section className="apx-panel apx-trace-panel" aria-labelledby="trace-title"><div className="apx-panel-heading"><div><span className="apx-section-label">OBSERVABLE EXECUTION</span><h2 id="trace-title">Tool trace</h2></div><span className="apx-counter">{plan?.trace.length ?? 0}</span></div>
-              {plan?.trace.length ? <ol className="apx-trace">{plan.trace.map((entry, index) => <li key={`${entry.step}-${index}`}><span className={`apx-trace-marker ${entry.decision.includes("block") ? "blocked" : entry.decision.includes("approval") ? "review" : ""}`}>{entry.decision.includes("block") ? <X size={11} /> : entry.decision.includes("approval") ? <LockKeyhole size={10} /> : <Check size={11} />}</span><div><div className="apx-trace-heading"><b>{entry.tool.replaceAll("_", " ")}</b><small>{entry.decision.replaceAll("_", " ")}</small></div><p>{entry.detail}</p></div></li>)}</ol> : <p className="apx-empty-copy">Agent reads and proposed tool calls appear here after staging.</p>}
-            </section>
-            <div className="apx-sandbox-note"><Database size={18} /><div><b>A working support workflow, a safe sandbox</b><p>Invoice changes and evidence are persisted. Refunds are ledger entries, and replies stay in the sandbox outbox. No money moves and no real email is sent.</p></div></div>
-          </aside>
+        </section></div>
         </div>
-        <footer className="apx-footer"><span><ShieldCheck size={14} /> APX · Task-scoped authorization & recovery</span><span>Build useful work. Make its effects reviewable.</span></footer>
+      </div>
+      <div className={`apx-dock-zone ${dockPinned ? "pinned" : ""}`}>
+        <button className="apx-dock-handle" onClick={() => setDockPinned(value => !value)} aria-label="Keep panel navigation visible" aria-pressed={dockPinned}><span />Panels<ChevronDown size={12} /></button>
+        <nav className="apx-dock" role="tablist" aria-label="Workspace panels">{workspacePanels.map((item, index) => <button key={item.id} id={`dock-${item.id}`} role="tab" aria-selected={panel === item.id} aria-controls={`workspace-${item.id}`} tabIndex={panel === item.id ? 0 : -1} onClick={() => setPanel(item.id)} onKeyDown={event => { const keys = ["ArrowRight", "ArrowLeft", "Home", "End"]; if (!keys.includes(event.key)) return; event.preventDefault(); const next = event.key === "Home" ? 0 : event.key === "End" ? workspacePanels.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + workspacePanels.length) % workspacePanels.length; setPanel(workspacePanels[next].id); document.getElementById(`dock-${workspacePanels[next].id}`)?.focus(); }}><item.icon size={20} strokeWidth={1.7} /><span>{item.label}</span>{item.id === "review" && plan?.status === "staged" && <i />}</button>)}</nav>
       </div>
     </main>
   );

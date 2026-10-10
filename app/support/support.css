@@ -310,3 +310,72 @@
 @media (max-width: 520px) { .apx-right { grid-template-columns: minmax(0, 1fr); } .apx-tabs { flex-wrap: wrap; } .apx-tabs button { min-width: 80px; } .apx-environment { font-size: 9px; padding: 6px; } .apx-header { gap: 10px; } .apx-intro { flex-wrap: wrap; } .apx-refresh { margin-left: auto; } }
 @media (prefers-reduced-motion: reduce) { .apx-workspace *, .apx-workspace *::before, .apx-workspace *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }
 
+.apx-focus { height: 100dvh; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+.apx-focus .apx-header { min-height: 64px; flex-shrink: 0; padding: 10px 26px; }
+.apx-focus .apx-brand-icon { width: 35px; height: 38px; }
+.apx-focus .apx-brand b { font-size: 22px; }
+.apx-focus-shell { flex: 1; min-height: 0; width: 100%; max-width: 1260px; display: flex; flex-direction: column; padding: 20px 28px 0; }
+.apx-focus-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-shrink: 0; padding-bottom: 18px; }
+.apx-focus-toolbar h1 { font-size: clamp(23px, 3vw, 30px); font-weight: 520; letter-spacing: -.04em; margin: 0; outline: none; }
+.apx-focus-controls { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.apx-ticket-switch { min-width: 0; }
+.apx-ticket-switch select { max-width: 100%; width: 250px; padding: 10px 13px; border: 1px solid var(--apx-border); border-radius: 9px; background: #101719; color: #b9c9bf; font-size: 12px; }
+.apx-panel-viewport { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 0 6px 108px 0; scrollbar-width: thin; scrollbar-color: #74866c40 transparent; }
+.apx-focus-view { display: grid; gap: 18px; align-content: start; animation: apx-reveal .22s ease-out; }
+.apx-focus-view[hidden] { display: none !important; }
+.apx-focus .apx-review-panel, .apx-focus .apx-activity, .apx-focus .apx-metrics { margin: 0; }
+.apx-focus .apx-panel-heading { padding: 22px 24px 18px; }
+.apx-focus .apx-panel-heading h2 { font-size: 16px; }
+.apx-focus .apx-queue { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 12px; padding: 0 16px 16px; overflow: visible; }
+.apx-focus .apx-ticket { width: auto; min-width: 0; padding: 19px; border-color: #ffffff0b; background: #ffffff02; }
+.apx-focus .apx-ticket strong { font-size: 13px; }
+.apx-focus .apx-ticket-snippet { font-size: 12px; -webkit-line-clamp: 3; }
+.apx-focus .apx-ticket-top b { font-size: 13px; }
+.apx-focus .apx-source-body { font-size: 14px; line-height: 1.9; padding: 20px 24px; }
+.apx-focus .apx-source-meta { padding-left: 24px; padding-right: 24px; }
+.apx-focus .apx-invoice-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.apx-focus .apx-mode-group { grid-template-columns: 1fr 1fr; }
+.apx-focus .apx-planner-fields { grid-template-columns: 1fr 1fr; }
+.apx-focus .apx-field select, .apx-focus .apx-field textarea { font-size: 13px; }
+.apx-focus .apx-planner-footer { justify-content: space-between; flex-direction: row; }
+.apx-next { justify-self: end; }
+.apx-focus .apx-grant-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 0 28px; padding: 0 24px; }
+.apx-focus .apx-grant-list dd { font-size: 14px; }
+.apx-focus .apx-trace { padding: 6px 24px 20px; }
+.apx-focus .apx-trace-heading b, .apx-focus .apx-trace li p { font-size: 12px; }
+.apx-focus .apx-trace-heading small { font-size: 10px; }
+.apx-focus .apx-empty-copy { padding: 8px 24px 28px; font-size: 13px; }
+.apx-focus .apx-activity-content { max-height: none; overflow: visible; }
+.apx-focus .apx-feedback { flex-shrink: 0; max-height: 25vh; overflow: auto; }
+.apx-dock-zone { position: fixed; z-index: 40; bottom: 0; left: 50%; transform: translateX(-50%); width: min(570px, calc(100% - 24px)); height: 100px; }
+.apx-dock { position: absolute; bottom: max(12px, env(safe-area-inset-bottom)); width: 100%; display: flex; align-items: center; justify-content: space-around; gap: 4px; padding: 9px; border: 1px solid #caf58826; border-radius: 20px; background: #172122ed; backdrop-filter: blur(22px); box-shadow: 0 12px 45px #0009; transform: translateY(140%); transition: transform .25s ease; }
+.apx-dock-zone:hover .apx-dock, .apx-dock-zone:focus-within .apx-dock, .apx-dock-zone.pinned .apx-dock { transform: translateY(0); }
+.apx-dock button { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 5px; min-width: 0; min-height: 54px; padding: 7px 4px; color: #8ca497; border: 1px solid transparent; border-radius: 12px; background: transparent; }
+.apx-dock button span { font-size: 10px; }
+.apx-dock button:hover { background: #ffffff08; color: #d3e6d8; }
+.apx-dock button[aria-selected="true"] { background: #caf58812; border-color: #caf58824; color: var(--apx-green); }
+.apx-dock button i { position: absolute; top: 5px; right: 12px; width: 5px; height: 5px; border-radius: 50%; background: var(--apx-green); }
+.apx-dock-handle { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 7px; padding: 8px 15px; border-radius: 20px; border: 1px solid #caf58820; background: #162020; color: #a6b99f; font-size: 10px !important; transition: bottom .25s ease; }
+.apx-dock-handle > span { width: 20px; height: 3px; border-radius: 3px; background: #caf58870; }
+.apx-dock-zone:hover .apx-dock-handle, .apx-dock-zone:focus-within .apx-dock-handle, .apx-dock-zone.pinned .apx-dock-handle { bottom: 86px; }
+@media (hover: none), (pointer: coarse) { .apx-dock { transform: none; } .apx-dock-handle { display: none; } }
+@media (max-width: 650px) {
+  .apx-focus .apx-header { min-height: 58px; flex-wrap: nowrap; padding: 10px 16px; }
+  .apx-focus .apx-brand small, .apx-focus .apx-environment { display: none; }
+  .apx-focus .apx-nav { order: initial; width: auto; padding: 0; border: 0; }
+  .apx-focus-shell { padding: 16px 16px 0; }
+  .apx-focus-toolbar { flex-wrap: wrap; gap: 10px; padding-bottom: 14px; }
+  .apx-focus-controls { width: 100%; }
+  .apx-ticket-switch { flex: 1; }
+  .apx-ticket-switch select { width: 100%; }
+  .apx-focus .apx-panel-heading { padding: 18px; }
+  .apx-focus .apx-invoice-strip, .apx-focus .apx-mode-group, .apx-focus .apx-planner-fields { grid-template-columns: 1fr 1fr; }
+  .apx-focus .apx-planner-footer { flex-direction: column; align-items: stretch; }
+  .apx-focus .apx-planner-footer > button { margin-left: 0; }
+  .apx-dock { padding: 6px; gap: 1px; border-radius: 16px; }
+  .apx-dock button span { font-size: 8px; }
+  .apx-dock button svg { width: 18px; height: 18px; }
+}
+@media (max-width: 400px) { .apx-focus .apx-planner-fields { grid-template-columns: 1fr; } .apx-focus .apx-mode-group button { padding: 10px 7px; } }
+@media (max-height: 500px) { .apx-focus .apx-header { min-height: 48px; padding-top: 6px; padding-bottom: 6px; } .apx-focus-shell { padding-top: 10px; } .apx-focus-toolbar { padding-bottom: 10px; flex-wrap: nowrap; } .apx-focus-controls { width: auto; } .apx-focus-toolbar h1 { font-size: 22px; } .apx-dock button { min-height: 42px; } .apx-dock button span { display: none; } .apx-dock-handle { bottom: 68px !important; } }
+@media (prefers-reduced-motion: reduce) { .apx-dock, .apx-dock-handle { transition: none; } }
