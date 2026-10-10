@@ -6,7 +6,7 @@ import {
   RefreshCw, RotateCcw, ShieldCheck, Sparkles, Ticket, X,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
+
 import { scenarioContent } from "@/lib/support/fixtures";
 import type {
   ActionDecision, PlanRequest, PolicyProfile, Scenario, SupportDashboard,
@@ -225,13 +225,13 @@ export function SupportWorkspace() {
   return (
     <main className="apx-workspace apx-focus">
       <header className="apx-header">
-        <Link className="apx-brand" href="/" aria-label="APX support workspace">
+        <a className="apx-brand" href="/" aria-label="APX support workspace">
           <span className="apx-brand-icon"><ShieldCheck size={23} strokeWidth={1.8} /></span>
           <span><b>APX<span className="apx-brand-dot">.</span></b><small>AUTHORIZED EXECUTION</small></span>
-        </Link>
+        </a>
         <nav className="apx-nav" aria-label="Main navigation">
-          <Link href="/evaluation" aria-label="Compare execution defenses"><FileText size={15} /><span className="hidden min-[400px]:inline">Compare</span></Link>
-          <Link href="/lab"><FlaskConical size={15} /> Attack lab <ArrowRight size={13} /></Link>
+          <a href="/evaluation" aria-label="Compare execution defenses"><FileText size={15} /><span className="hidden min-[400px]:inline">Compare</span></a>
+          <a href="/lab"><FlaskConical size={15} /> Attack lab <ArrowRight size={13} /></a>
         </nav>
         <span className="apx-environment"><span /> Sandbox environment</span>
       </header>
