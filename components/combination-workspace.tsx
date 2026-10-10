@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ArrowDownToLine, ArrowRight, BarChart3, Check, ChevronUp, Code2,
-  FileSearch, FlaskConical, Info, Layers3, LockKeyhole, RefreshCw,
+  Eye, FileSearch, FlaskConical, Info, Layers3, LockKeyhole, RefreshCw,
   Search, ShieldCheck, Ticket,
 } from "lucide-react";
 import {
@@ -172,7 +172,7 @@ export function CombinationWorkspace() {
     <main className="apx-eval">
       <header className="ev-header">
         <a className="ev-brand" href="/" aria-label="APX support workspace"><span className="ev-brand-icon"><ShieldCheck size={21} strokeWidth={1.8} /></span><span><b>APX<span>.</span></b><small>AUTHORIZED EXECUTION</small></span></a>
-        <nav aria-label="Main navigation"><a href="/"><Ticket size={15} /><span>Workspace</span></a><a href="/lab"><FlaskConical size={15} /><span>Attack lab</span></a></nav>
+        <nav aria-label="Main navigation"><a href="/"><Ticket size={15} /><span>Workspace</span></a><a href="/observer" aria-label="Open security observer"><Eye size={15} /><span>Observer</span></a><a href="/lab"><FlaskConical size={15} /><span>Attack lab</span></a></nav>
       </header>
       <div className="ev-shell">
         <div className="ev-toolbar"><div><span className="ev-eyebrow">ARCHITECTURE COMPARISON</span><h1>{currentView.title}</h1><p>{currentView.subtitle}</p></div><button className="ev-button" onClick={() => downloadJson(report, "apx-combination-evaluation.json")} aria-label="Download full comparison JSON"><ArrowDownToLine size={16} /><span>Download evidence</span></button></div>

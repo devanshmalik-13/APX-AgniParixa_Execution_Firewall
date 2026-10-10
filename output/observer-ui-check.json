@@ -1,0 +1,141 @@
+{
+  "generatedAt": "2026-10-10T18:29:47.875Z",
+  "checks": [
+    {
+      "height": 768,
+      "pageOverflowX": 0,
+      "pageOverflowY": 0,
+      "panel": "Scan",
+      "panelOverflowX": 0,
+      "width": 1366
+    },
+    {
+      "height": 768,
+      "pageOverflowX": 0,
+      "pageOverflowY": 0,
+      "panel": "Results",
+      "panelOverflowX": 0,
+      "width": 1366
+    },
+    {
+      "height": 768,
+      "pageOverflowX": 0,
+      "pageOverflowY": 0,
+      "panel": "Setup",
+      "panelOverflowX": 0,
+      "width": 1366
+    },
+    {
+      "height": 768,
+      "pageOverflowX": 0,
+      "pageOverflowY": 0,
+      "panel": "Method",
+      "panelOverflowX": 0,
+      "width": 1366
+    },
+    {
+      "height": 844,
+      "pageOverflowX": 0,
+      "pageOverflowY": 0,
+      "panel": "Scan",
+      "panelOverflowX": 0,
+      "width": 390
+    },
+    {
+      "height": 844,
+      "pageOverflowX": 0,
+      "pageOverflowY": 0,
+      "panel": "Results",
+      "panelOverflowX": 0,
+      "width": 390
+    },
+    {
+      "height": 844,
+      "pageOverflowX": 0,
+      "pageOverflowY": 0,
+      "panel": "Setup",
+      "panelOverflowX": 0,
+      "width": 390
+    },
+    {
+      "height": 844,
+      "pageOverflowX": 0,
+      "pageOverflowY": 0,
+      "panel": "Method",
+      "panelOverflowX": 0,
+      "width": 390
+    },
+    {
+      "height": 568,
+      "pageOverflowX": 0,
+      "pageOverflowY": 0,
+      "panel": "Scan",
+      "panelOverflowX": 0,
+      "width": 320
+    },
+    {
+      "height": 568,
+      "pageOverflowX": 0,
+      "pageOverflowY": 0,
+      "panel": "Results",
+      "panelOverflowX": 0,
+      "width": 320
+    },
+    {
+      "height": 568,
+      "pageOverflowX": 0,
+      "pageOverflowY": 0,
+      "panel": "Setup",
+      "panelOverflowX": 0,
+      "width": 320
+    },
+    {
+      "height": 568,
+      "pageOverflowX": 0,
+      "pageOverflowY": 0,
+      "panel": "Method",
+      "panelOverflowX": 0,
+      "width": 320
+    },
+    {
+      "height": 390,
+      "pageOverflowX": 0,
+      "pageOverflowY": 0,
+      "panel": "Scan",
+      "panelOverflowX": 0,
+      "width": 844
+    },
+    {
+      "height": 390,
+      "pageOverflowX": 0,
+      "pageOverflowY": 0,
+      "panel": "Results",
+      "panelOverflowX": 0,
+      "width": 844
+    },
+    {
+      "height": 390,
+      "pageOverflowX": 0,
+      "pageOverflowY": 0,
+      "panel": "Setup",
+      "panelOverflowX": 0,
+      "width": 844
+    },
+    {
+      "height": 390,
+      "pageOverflowX": 0,
+      "pageOverflowY": 0,
+      "panel": "Method",
+      "panelOverflowX": 0,
+      "width": 844
+    }
+  ],
+  "manualChecks": [
+    "ordinary and suspicious real inference",
+    "sample controls and source selector",
+    "unloaded model scan disabled",
+    "dock handle pin",
+    "keyboard arrow navigation",
+    "JSON evidence download"
+  ]
+}

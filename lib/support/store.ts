@@ -1,4 +1,6 @@
-import { buildExternalPlan, buildSupportPlan } from "./agent";
+import { buildExternalPlan, buildSupportPlan, ticketContent } from "./agent";
+import { createObserverClient, unavailableObserverEvidence, type ObserverClient } from "../observer/server";
+import type { ObserverInputText } from "../observer/types";
 import { externalProposalSchema } from "../execution/request";
 import { supportInvoices, supportTickets } from "./fixtures";
 import { canonicalJson, evaluateSupportActions, hashPlan, verifyPlan } from "./policy";
@@ -7,7 +9,7 @@ import type { ExternalProposalRequest, OutboxMessage, PlanRequest, SupportAuditE
 export class SupportStoreError extends Error {
   constructor(public readonly status: number, message: string) { super(message); this.name = "SupportStoreError"; }
 }
-export interface SupportStoreConfig { apiKey?: string; model: string }
+export interface SupportStoreConfig { apiKey?: string; model: string; observer?: ObserverClient }
 export interface PlanOperation { operation: "execute" | "reject" | "recover"; receiptHash: string; approve: boolean }
 
 interface InvoiceRow {
@@ -34,6 +36,7 @@ function validateOwner(owner: string) {
 
 /** No memory-only persistence: every lifecycle transition and connector effect is a D1 transaction. */
 export function createSupportStore(db: D1Database, config: SupportStoreConfig) {
+  const observer = config.observer ?? createObserverClient();
   const prepare = (sql: string, ...values: (string | number | null)[]) => db.prepare(sql).bind(...values);
   const assertion = (token: string, expression: string, ...values: (string | number | null)[]) =>
     prepare(`INSERT INTO support_transaction_assertions(token, passed) VALUES (?, ${expression})`, token, ...values);
@@ -92,6 +95,16 @@ export function createSupportStore(db: D1Database, config: SupportStoreConfig) {
     return plan;
   }
 
+  async function withObservation(plan: SupportPlan, customerContext: string): Promise<SupportPlan> {
+    const texts: ObserverInputText[] = [{ id: "customer-context", source: "customer_context", text: customerContext },
+      ...plan.actions.flatMap((decision, index): ObserverInputText[] => decision.action.type === "send_reply" ? [{ id: `reply-${index}`, source: "proposed_reply", text: `${decision.action.subject}\n${decision.action.body}` }] : [])];
+    // A failure remains unknown, never a reason to remove or relax policy checks.
+    try { plan.observer = await observer.observe({ texts }); }
+    catch { plan.observer = unavailableObserverEvidence(); }
+    plan.receiptHash = await hashPlan(plan);
+    return plan;
+  }
+
   async function stageExternal(owner: string, proposal: ExternalProposalRequest): Promise<SupportPlan> {
     const request = externalProposalSchema.parse(proposal);
     await seed(owner);
@@ -99,7 +112,8 @@ export function createSupportStore(db: D1Database, config: SupportStoreConfig) {
     if (!ticket) throw new SupportStoreError(404, "Support ticket was not found.");
     const invoice = await getInvoice(owner, ticket.invoiceId);
     if (!invoice || invoice.tenantId !== ticket.tenantId || invoice.customerId !== ticket.customerId) throw new SupportStoreError(409, "Trusted ticket and invoice scope do not match.");
-    return persistPlan(owner, ticket, await buildExternalPlan(ticket, invoice, request));
+    const plan = await buildExternalPlan(ticket, invoice, request);
+    return persistPlan(owner, ticket, await withObservation(plan, ticket.body));
   }
 
   async function stage(owner: string, request: PlanRequest): Promise<SupportPlan> {
@@ -126,7 +140,7 @@ export function createSupportStore(db: D1Database, config: SupportStoreConfig) {
       }
     }
     const plan = await buildSupportPlan(ticket, invoice, request, config);
-    return persistPlan(owner, ticket, plan);
+    return persistPlan(owner, ticket, await withObservation(plan, ticketContent(ticket, request)));
   }
 
   async function operate(owner: string, id: string, input: PlanOperation): Promise<SupportPlan> {

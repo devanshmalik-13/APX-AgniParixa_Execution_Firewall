@@ -92,7 +92,9 @@ export function sanitizeSupportAction(action: SupportAction): SupportAction {
   return canonicalJson(safe) === canonicalJson(action) ? safe : { ...safe, redacted: true };
 }
 function receiptPayload(plan: SupportPlan) {
-  return { id: plan.id, ticketId: plan.ticketId, createdAt: plan.createdAt, expiresAt: plan.expiresAt, mode: plan.mode, model: plan.model, scenario: plan.scenario, profile: plan.profile, summary: plan.summary, grant: plan.grant, invoiceBefore: plan.invoiceBefore, actions: plan.actions, trace: plan.trace, latencyMs: plan.latencyMs };
+  return { id: plan.id, ticketId: plan.ticketId, createdAt: plan.createdAt, expiresAt: plan.expiresAt, mode: plan.mode, model: plan.model, scenario: plan.scenario, profile: plan.profile, summary: plan.summary, grant: plan.grant, invoiceBefore: plan.invoiceBefore, actions: plan.actions, trace: plan.trace, latencyMs: plan.latencyMs,
+    // Old receipts keep their exact payload. New evidence cannot be silently replaced.
+    ...(plan.observer === undefined ? {} : { observer: plan.observer }) };
 }
 export async function hashPlan(plan: SupportPlan): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonicalJson(receiptPayload(plan))));

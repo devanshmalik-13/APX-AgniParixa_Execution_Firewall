@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { createSupportStore, SupportStoreError, type SupportStoreConfig } from "../lib/support/store";
-import { evaluateSupportActions, hashPlan } from "../lib/support/policy";
+import { evaluateSupportActions, hashPlan, verifyPlan } from "../lib/support/policy";
+import { createObserverClient, unavailableObserverEvidence } from "../lib/observer/server";
+import type { ObserverEvidence } from "../lib/observer/types";
 import { supportTickets } from "../lib/support/fixtures";
 import type { PlanRequest, SupportPlan } from "../lib/support/types";
 
@@ -40,6 +42,48 @@ function database(config: SupportStoreConfig = { model: "replay" }) {
 const request = (ticketId = "tkt-1042", extra: Partial<PlanRequest> = {}): PlanRequest => ({ ticketId, mode: "replay", scenario: "normal", profile: "standard", ...extra });
 const operation = (plan: SupportPlan, kind: "execute" | "recover" | "reject", approve = false) => ({ operation: kind, receiptHash: plan.receiptHash, approve });
 const status = (value: number) => (error: unknown) => error instanceof SupportStoreError && error.status === value;
+
+test("shadow predictions never change policy decisions or mandatory external approval", async () => {
+  const outcomes: SupportPlan["actions"][] = [];
+  for (const verdict of ["benign", "suspicious", "unknown"] as const) {
+    const observation: ObserverEvidence = { ...unavailableObserverEvidence(), status: verdict === "unknown" ? "unavailable" : "observed", verdict };
+    const observer = { getConfig: createObserverClient().getConfig, observe: async () => observation };
+    const { sqlite, store } = database({ model: "replay", observer });
+    try {
+      const plan = await store.stage("owner", request("tkt-1042", { scenario: "injection", profile: "strict" }));
+      outcomes.push(plan.actions);
+      assert.equal(plan.observer?.verdict, verdict);
+      assert.equal(await verifyPlan(plan), true);
+      await assert.rejects(store.operate("owner", plan.id, operation(plan, "execute")), status(403));
+      const external = await store.stageExternal("owner", { ticketId: "tkt-1042", actions: [{ id: "reply", type: "send_reply", to: "maya@example.test", subject: "Invoice", body: "We are reviewing your request." }] });
+      assert.equal(external.profile, "strict");
+      assert.equal(external.actions[0].decision, "approval_required");
+      await assert.rejects(store.operate("owner", external.id, operation(external, "execute")), status(403));
+      assert.equal((await store.dashboard("owner")).outbox.length, 0);
+    } finally { sqlite.close(); }
+  }
+  assert.deepEqual(outcomes[0], outcomes[1]);
+  assert.deepEqual(outcomes[1], outcomes[2]);
+});
+
+test("observer outages do not strand plans and observer evidence is bound to their receipt", async () => {
+  const { sqlite, store } = database({ model: "replay", observer: { getConfig: createObserverClient().getConfig, observe: async () => { throw new Error("private diagnostic"); } } });
+  try {
+    const plan = await store.stage("owner", request());
+    assert.equal(plan.observer?.status, "unavailable");
+    assert.equal(await verifyPlan(plan), true);
+    const tampered = structuredClone(plan);
+    tampered.observer!.verdict = "benign";
+    assert.equal(await verifyPlan(tampered), false);
+    const legacy = structuredClone(plan);
+    delete legacy.observer;
+    legacy.receiptHash = await hashPlan(legacy);
+    assert.equal(await verifyPlan(legacy), true, "Plans without observer evidence remain valid");
+    await store.operate("owner", plan.id, operation(plan, "execute"));
+    await store.operate("owner", plan.id, operation(plan, "recover"));
+    assert.ok(!JSON.stringify(await store.dashboard("owner")).includes("private diagnostic"));
+  } finally { sqlite.close(); }
+});
 
 test("external gateway ignores model authority, stages mixed actions, and requires operator review", async () => {
   const { sqlite, store } = database();

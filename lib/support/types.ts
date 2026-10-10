@@ -1,3 +1,5 @@
+import type { ObserverEvidence } from "../observer/types";
+
 export type InvoiceStatus = "open" | "disputed" | "resolved";
 export type AgentMode = "replay" | "live" | "external";
 export type Scenario = "normal" | "injection" | "over-refund" | "cross-tenant" | "duplicate-refund";
@@ -39,6 +41,8 @@ export interface SupportPlan {
   status: "staged" | "executed" | "recovered" | "rejected";
   approved: boolean; executedAt: string | null; recoveredAt: string | null;
   invoiceAfter: SupportInvoice | null; latencyMs: number;
+  /** Advisory model evidence, sealed with the proposal; never execution authority. */
+  observer?: ObserverEvidence;
 }
 export interface OutboxMessage {
   id: string; planId: string; to: string; subject: string; body: string;

@@ -48,3 +48,9 @@ next-env.d.ts
 /output/pdf/
 /tmp/pdfs/
 /work/
+
+# Observer inference dependencies and local model/runtime state.
+/services/observer/.venv/
+/services/observer/.models/
+__pycache__/
+.pytest_cache/

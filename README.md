@@ -6,6 +6,8 @@ The primary workspace is `/` (also `/support`). The original execution-firewall 
 
 The implementation comparison at `/evaluation` evaluates five local control combinations on the same synthetic action proposals, explains the selected direction, and provides an external-proposal gateway inspector. `POST /api/execution/plans` stages provider-independent actions under server-owned grants and mandatory strict review. See [IMPLEMENTATION_DECISIONS.md](./IMPLEMENTATION_DECISIONS.md) for architecture decisions, integration contract, research and limits.
 
+The pretrained observer at `/observer` adds four focused panels with a floating bottom dock: Scan, Results, Setup and Method. Its separate authenticated Python service runs pinned injection classifiers; the app validates and seals shadow evidence into support-plan receipts without changing grants or mandatory approvals. Public PIGuard has been run locally on CPU in bfloat16; Meta Prompt Guard variants require the owner's gated model access and remain unverified. See [observer setup and verification](./services/observer/README.md) and [model research](./GUARD_MODEL_RESEARCH.md). Local inference does not enable the hosted site: hosting needs its own reachable HTTPS inference service.
+
 ## Current end-to-end workflow
 
 1. Select a synthetic billing ticket and inspect its trusted customer/invoice assignment.

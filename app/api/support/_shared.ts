@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createSupportStore, SupportStoreError } from "@/lib/support/store";
+import { createObserverClient } from "@/lib/observer/server";
 
 export const planRequestSchema = z.object({
   ticketId: z.string().min(1).max(100), mode: z.enum(["replay", "live"]),
@@ -22,15 +23,17 @@ export function supportContext(request: Request, mutation = false) {
     if (!origin || origin !== expectedOrigin || request.headers.get("sec-fetch-site") === "cross-site") throw new SupportStoreError(403, "Support mutations require a request from this site's origin.");
   }
   if (!env.DB) throw new SupportStoreError(503, "The support database is unavailable.");
-  return { owner, store: createSupportStore(env.DB, { apiKey: env.OPENAI_API_KEY, model: env.OPENAI_MODEL || "gpt-5-mini" }) };
+  const timeout = Number(env.OBSERVER_TIMEOUT_MS);
+  const observer = createObserverClient({ url: env.OBSERVER_URL, token: env.OBSERVER_TOKEN, modelKey: env.OBSERVER_MODEL,
+    allowLocal: env.OBSERVER_ALLOW_LOCAL === "true", timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : undefined });
+  return { owner, observer, store: createSupportStore(env.DB, { apiKey: env.OPENAI_API_KEY, model: env.OPENAI_MODEL || "gpt-5-mini", observer }) };
 }
 
 /** Bound the stream itself, including chunked requests without Content-Length. */
-export async function readSupportBody(request: Request): Promise<unknown> {
+export async function readSupportBody(request: Request, maxBytes = 12_000): Promise<unknown> {
   if (request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json") throw new SupportStoreError(400, "Request body must use application/json.");
-  const maxBytes = 12_000;
   const length = request.headers.get("content-length");
-  if (length && (!/^\d+$/.test(length) || Number(length) > maxBytes)) throw new SupportStoreError(400, "Request body exceeds the 12 KB limit.");
+  if (length && (!/^\d+$/.test(length) || Number(length) > maxBytes)) throw new SupportStoreError(400, `Request body exceeds the ${Math.round(maxBytes / 1000)} KB limit.`);
   if (!request.body) throw new SupportStoreError(400, "Request body must be valid JSON.");
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -40,7 +43,7 @@ export async function readSupportBody(request: Request): Promise<unknown> {
       const { done, value } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > maxBytes) { await reader.cancel(); throw new SupportStoreError(400, "Request body exceeds the 12 KB limit."); }
+      if (size > maxBytes) { await reader.cancel(); throw new SupportStoreError(400, `Request body exceeds the ${Math.round(maxBytes / 1000)} KB limit.`); }
       chunks.push(value);
     }
     const bytes = new Uint8Array(size);

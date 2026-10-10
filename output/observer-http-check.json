@@ -1,0 +1,40 @@
+{
+  "generatedAt": "2026-10-10T18:29:44.223Z",
+  "passed": true,
+  "checks": [
+    {
+      "name": "observer routes preserve authentication and same-origin boundaries",
+      "passed": true
+    },
+    {
+      "name": "observer requests reject unknown fields, models and oversized input",
+      "passed": true
+    },
+    {
+      "name": "actual pretrained scan returns pinned model evidence and complete coverage",
+      "passed": true
+    },
+    {
+      "name": "staged support plans retain shadow evidence without weakening strict approval",
+      "passed": true
+    },
+    {
+      "name": "external proposals retain mandatory review with observer evidence",
+      "passed": true
+    },
+    {
+      "name": "real multi-window inference is complete and the app respects its deadline",
+      "passed": true
+    }
+  ],
+  "longInputMeasurement": {
+    "serviceLatencyMs": 24969.976,
+    "appStatus": "unavailable",
+    "appLatencyMs": 15009,
+    "tokens": 540,
+    "segments": 2
+  },
+  "modelInference": "actual configured pretrained service",
+  "cleanup": "Only staged plans created by this run were rejected; no sandbox write actions were executed.",
+  "error": null
+}

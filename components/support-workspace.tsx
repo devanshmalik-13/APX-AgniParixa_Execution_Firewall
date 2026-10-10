@@ -2,12 +2,13 @@
 
 import {
   ArrowDownToLine, ArrowRight, Check, ChevronDown, Clock3, Database,
-  FileText, FlaskConical, Inbox, LoaderCircle, LockKeyhole, Mail,
+  Eye, FileText, FlaskConical, Inbox, LoaderCircle, LockKeyhole, Mail,
   RefreshCw, RotateCcw, ShieldCheck, Sparkles, Ticket, X,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { scenarioContent } from "@/lib/support/fixtures";
+import type { ObserverEvidence } from "@/lib/observer/types";
 import type {
   ActionDecision, PlanRequest, PolicyProfile, Scenario, SupportDashboard,
   SupportPlan, SupportTicket,
@@ -231,6 +232,7 @@ export function SupportWorkspace() {
         </a>
         <nav className="apx-nav" aria-label="Main navigation">
           <a href="/evaluation" aria-label="Compare execution defenses"><FileText size={15} /><span className="hidden min-[400px]:inline">Compare</span></a>
+          <a href="/observer" aria-label="Open security observer"><Eye size={15} /><span className="hidden min-[400px]:inline">Observer</span></a>
           <a href="/lab"><FlaskConical size={15} /> Attack lab <ArrowRight size={13} /></a>
         </nav>
         <span className="apx-environment"><span /> Sandbox environment</span>
@@ -284,6 +286,7 @@ export function SupportWorkspace() {
               <div className="apx-panel-heading"><div><span className="apx-section-label">04 / REVIEW & EXECUTE</span><h2 id="review-title">The change preview</h2></div>{plan && <span className={`apx-badge apx-badge-${plan.status}`}>{plan.status}</span>}</div>
               {plan ? <>
                 <div className="apx-plan-summary"><p>{plan.summary}</p><div><span>{plan.mode === "live" ? `Live · ${plan.model}` : plan.mode === "external" ? "External proposal · reviewed execution" : "Deterministic test replay"}</span><span>{plan.latencyMs} ms</span><span>{timestamp(plan.createdAt)}</span></div></div>
+                {plan.observer && <ObserverSummary observation={plan.observer} />}
                 <div className="apx-review-counts"><span><span className="apx-dot green" /> {allowedCount} within grant or approval</span><span><span className="apx-dot red" /> {blockedCount} blocked · will be skipped</span></div>
                 <div className="apx-actions">{plan.actions.length ? plan.actions.map((item, index) => <ActionCard key={item.action.id} item={item} index={index} planStatus={plan.status} />) : <p className="apx-empty-copy">This plan proposes no executable actions.</p>}</div>
                 {plan.status === "staged" && <div className="apx-execute-panel">
@@ -312,6 +315,7 @@ export function SupportWorkspace() {
               <div className="apx-grant-boundary"><span className="apx-dot green" />One task. One customer. One invoice.</div>
             </section></div>
           <div id="workspace-trace" role="tabpanel" aria-labelledby="dock-trace" hidden={panel !== "trace"} className="apx-focus-view apx-view-trace"><section className="apx-panel apx-trace-panel" aria-labelledby="trace-title"><div className="apx-panel-heading"><div><span className="apx-section-label">OBSERVABLE EXECUTION</span><h2 id="trace-title">Tool trace</h2></div><span className="apx-counter">{plan?.trace.length ?? 0}</span></div>
+              {plan?.observer && <ObserverSummary observation={plan.observer} details />}
               {plan?.trace.length ? <ol className="apx-trace">{plan.trace.map((entry, index) => <li key={`${entry.step}-${index}`}><span className={`apx-trace-marker ${entry.decision.includes("block") ? "blocked" : entry.decision.includes("approval") ? "review" : ""}`}>{entry.decision.includes("block") ? <X size={11} /> : entry.decision.includes("approval") ? <LockKeyhole size={10} /> : <Check size={11} />}</span><div><div className="apx-trace-heading"><b>{entry.tool.replaceAll("_", " ")}</b><small>{entry.decision.replaceAll("_", " ")}</small></div><p>{entry.detail}</p></div></li>)}</ol> : <p className="apx-empty-copy">Agent reads and proposed tool calls appear here after staging.</p>}
             </section></div>
           <div id="workspace-activity" role="tabpanel" aria-labelledby="dock-activity" hidden={panel !== "activity"} className="apx-focus-view apx-view-activity"><section className="apx-metrics" aria-label="Workspace activity">
@@ -339,6 +343,11 @@ export function SupportWorkspace() {
 }
 
 function initials(name: string) { return name.split(" ").slice(0, 2).map((part) => part[0]).join(""); }
+
+function ObserverSummary({ observation, details = false }: { observation: ObserverEvidence; details?: boolean }) {
+  const label = observation.verdict === "suspicious" ? "Suspicious signal" : observation.verdict === "benign" ? "No suspicious signal" : "No verdict";
+  return <div className="apx-grant-note"><Eye size={15} /><div style={{ minWidth: 0, overflowWrap: "anywhere" }}><b>Security observer · {label}</b><p>{observation.reason} Shadow mode: permissions and required approvals remain unchanged.</p>{details && <details style={{ marginTop: 7 }}><summary>Model evidence</summary><p>{observation.model?.id ?? "No model inference"} · {observation.latencyMs} ms · {observation.coverage.complete ? "Complete" : "Incomplete"} coverage · {observation.coverage.segments} segments</p>{observation.model && <p>Revision: <code>{observation.model.revision}</code></p>}<p>Highest suspicion score: {observation.maxScore === null ? "Unmeasured" : observation.maxScore.toFixed(4)} · threshold {observation.threshold.toFixed(4)}</p></details>}<a className="apx-text-button" style={{ marginTop: 6 }} href="/observer">Open observer workspace<ArrowRight size={12} /></a></div></div>;
+}
 
 function Stat({ icon, label, value, detail }: { icon: ReactNode; label: string; value: string; detail: string }) {
   return <div className="apx-stat"><div><span>{icon}{label}</span><strong>{value}</strong></div><small>{detail}</small></div>;
