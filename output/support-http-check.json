@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-10T13:39:02.686Z",
+  "baseUrl": "http://localhost:5173",
+  "checks": [
+    {
+      "name": "authentication and same-origin mutation boundaries",
+      "passed": true
+    },
+    {
+      "name": "strict request schemas, body bounds, invalid identifiers, and safe provider absence",
+      "passed": true
+    },
+    {
+      "name": "staging has no connector effects, and reject is durable and idempotent",
+      "passed": true
+    },
+    {
+      "name": "standard execution persists one invoice/refund and one queued reply under repeated and concurrent requests",
+      "passed": true
+    },
+    {
+      "name": "strict and high-value plans require explicit receipt-bound approval",
+      "passed": true
+    },
+    {
+      "name": "two proposals from one invoice version cannot both commit; failed transactions leave no partial outbox",
+      "passed": true
+    },
+    {
+      "name": "blocked attack effects are excluded while permitted support actions still execute",
+      "passed": true
+    }
+  ],
+  "success": true,
+  "plansCreated": [
+    "8126fbc7-318e-408b-be72-d45fbfaccacd",
+    "bec685ea-8020-4a47-a450-80baf8b6d697",
+    "5bf819c0-b4de-475a-a27b-f78f5cc08939",
+    "b73120a3-3035-4c6d-812d-c577821917e8",
+    "43ea8026-4f60-4652-8d29-f64700db15ff",
+    "5f72a99d-3be0-4c27-b815-202c965718cd",
+    "694713c3-f54e-4ed8-b1e5-3475cd700a9b",
+    "c777d70b-8644-4c4b-be0a-9c08e3a013eb",
+    "5b413fa8-2a92-4b9e-86e4-9f09eec55968",
+    "db72a698-77bb-422c-8ea4-7c223e983519"
+  ],
+  "scope": "Local authenticated replay agent with actual durable D1 writes and a cancellable sandbox outbox. No model calls or mail delivery."
+}

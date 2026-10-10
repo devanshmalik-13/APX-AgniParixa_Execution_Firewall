@@ -1,4 +1,5 @@
 import { attackScenarios } from "./scenarios";
+import { requestsCredentialDisclosure } from "./prompt-policy";
 import type { ActionRequest } from "./types";
 
 export type AttackLevel = "easy" | "medium" | "hard" | "extreme";
@@ -29,6 +30,14 @@ export function promptForLevel(scenarioId: string, level: AttackLevel): string {
 // Analysts can edit the full action separately for cases the parser cannot express.
 export function proposeAction(scenarioId: string, level: AttackLevel, prompt: string): ActionRequest {
   const scenario = attackScenarios.find((item) => item.id === scenarioId) ?? attackScenarios[0];
+  if (prompt !== promptForLevel(scenarioId, level) && requestsCredentialDisclosure(prompt)) {
+    return {
+      id: `proposal-${scenarioId}`, tool: "read_document", operation: "read",
+      arguments: { documentId: "protected-credentials" }, content: prompt,
+      taskRelevance: 0.05,
+      requestedBy: [{ sourceId: "judge-edited-prompt", sourceType: "user_prompt", trust: "user", sensitivity: "public" }],
+    };
+  }
   const action = structuredClone(scenario.action);
   const lowered = prompt.toLowerCase();
   const email = prompt.match(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i)?.[0];
@@ -47,7 +56,7 @@ export function proposeAction(scenarioId: string, level: AttackLevel, prompt: st
   const iteration = prompt.match(/(?:repeat|iteration|again)\s*(\d{1,3})/i)?.[1];
   if (iteration && action.tool === "read_document") action.currentIteration = Number(iteration);
   // An edited, benign billing request should not silently replay the old malicious action.
-  const attackCues = /ignore|forget|secret|key|attacker|admin|permanent|repeat|again|shell|protected|delete|remove|erase|destroy|overwrite|\.env|\.\.\/|other-tenant|all.staff|send|email|digest|compress|bundle|query|fetch|outside|export|environment|read\s+\//i;
+  const attackCues = /ignore|forget|secret|attacker|admin|permanent|repeat|again|shell|protected|delete|remove|erase|destroy|overwrite|\.env|\.\.\/|other-tenant|all.staff|send|email|digest|compress|bundle|query|fetch|outside|export|environment|read\s+\//i;
   if (prompt !== promptForLevel(scenarioId, level) && !attackCues.test(lowered)) {
     return {
       id: `proposal-${scenarioId}`, tool: "send_email", operation: "draft",

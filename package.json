@@ -12,8 +12,14 @@
     "start": "node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js dev --config dist/server/wrangler.json --local --persist-to .wrangler/state --ip 127.0.0.1 --inspector-port 0",
     "test": "tsx --test tests/*.test.ts",
     "evaluate": "tsx scripts/evaluate-security.ts",
+    "evaluate:support": "tsx scripts/evaluate-support.ts",
+    "check:support": "tsx scripts/check-support-http.ts",
+    "check:live": "tsx scripts/check-support-live.ts",
+    "typecheck": "tsc --noEmit",
+    "check:local": "tsx scripts/check-local-gateway.ts",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "db:local:init": "node scripts/init-local-db.mjs"
   },
   "dependencies": {
     "class-variance-authority": "0.7.1",

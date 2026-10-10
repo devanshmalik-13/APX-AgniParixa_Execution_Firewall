@@ -1,5 +1,7 @@
 # APX threat model
 
+The current support workspace's trust model, transaction boundaries, authentication, recovery and remaining limits are described in [SUPPORT_ENGINEERING.md](./SUPPORT_ENGINEERING.md). The following describes the preserved historical `/lab` workflow.
+
 ## Protected system
 
 APX protects a workplace AI agent that reads documents and tool results, then requests actions from mock email, database, memory, and file tools.
@@ -27,6 +29,7 @@ An external sender, low-trust contributor, or compromised internal mailbox that 
 6. A server-owned capability passport constrains tenant, tool, operation, filesystem root, database schema, row count, destination, and expiry.
 7. Each submitted prompt is redacted and stored before action evaluation; the policy decision is stored before mock tool dispatch, then its outcome is finalized in D1. The model cannot directly write to the policy or audit tables.
 8. Custom client submissions are forced into enforce mode, and client claims that retrieved or tool-returned content is trusted are downgraded. Unprotected and observe modes are reserved for exact server-owned demonstration fixtures.
+9. The demo grants specific internal recipients, plus a scoped send of the assigned billing record to its synthetic customer. An internal domain alone grants no authority. Recognizable credentials in content or nested arguments are blocked even for approved recipients, and preference memory cannot grant authorization.
 
 ## Out of scope
 

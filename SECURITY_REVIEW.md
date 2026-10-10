@@ -1,4 +1,22 @@
-# APX final engineering review — 26 September 2026
+# Support workspace engineering review — 10 October 2026
+
+The current support workflow is documented in [SUPPORT_ENGINEERING.md](./SUPPORT_ENGINEERING.md). Independent implementation review found and repaired three issues: blocked model proposals retaining sensitive strings in stored evidence, unsupported tool names retaining sensitive strings in traces, and model-supplied reserved metadata being overwritten rather than rejected. Regression tests verify all three paths. Redacted proposals retain a permanent denial marker.
+
+Durable SQL tests cover atomic fault rollback, concurrent idempotent execution, stale/full-snapshot checks, owner isolation, refund-ledger replay, receipt-bound approvals, expiry, monotonic recovery, and policy evolution. Ticket entitlements are re-derived before execution and the exact trusted ticket snapshot is checked in the same transaction. Recovery refuses newer invoice or ticket changes. Old proposals can be rejected and committed effects recovered even after preview-format/policy changes; new execution still requires current policy.
+
+All 158 repository tests, TypeScript, support-policy evaluation, seven real HTTP/D1 groups, and the original lab HTTP/PDF checks pass. Browser review covers execution/recovery and mobile layout. Live model performance is unverified until a server key is configured. The checks validate the synthetic sandbox; production payment/email integrations and external immutable audit are outside its scope.
+
+---
+
+# Historical APX engineering review — 26 September 2026
+
+## Follow-up repair verification
+
+The historical review below predates the current repairs. The unchanged 16-case set now contains 11/11 attacks and allows 5/5 legitimate cases. Individual internal mailbox grants close the recorded recipient bypass, and a source- and operation-scoped customer grant closes the recorded false positive. Credential payload checks cover nested tool arguments and approved recipients; preference memory rejects authorization changes; structured credential fields are redacted before storage. Malformed JSON and invalid pagination return HTTP 400. The live inspector displays the action actually evaluated and protects pending submissions from edits.
+
+`npm run check:local` reproduces live gateway decisions, audit persistence/redaction, concurrent one-time approval (one HTTP 200 and one 409), isolation, analyzed logs, exports, prompt/user PDF parsing, and the benchmark. It requires the local server on port 5173 and adds synthetic audit records. Historical audit entries are retained. Application identity/RBAC, trusted provenance, server-owned session budgets, and atomic receipt-chain sequencing remain limitations; these repairs are not a production-security certification.
+
+## Historical review
 
 This is a hackathon prototype, not a production agent firewall. The working target is a synthetic workplace assistant and in-process tool simulator. A deterministic gateway decides before dispatch; a live LLM is not in the execution path. Scores reflect the repository as tested, including its known miss and false positive.
 

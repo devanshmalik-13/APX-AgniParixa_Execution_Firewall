@@ -1,4 +1,25 @@
-# Evaluation report
+# Current support-workspace evaluation — 10 October 2026
+
+The new support workspace has **158 passing automated tests** across the complete repository, including 31 support-policy tests, 9 provider-loop/replay tests and 19 durable SQLite transaction tests. The randomized policy test exercises 250 seeded mixed-action batches.
+
+| Check | Measured result |
+| --- | --- |
+| TypeScript | Pass |
+| Support action-policy fixtures | 20/20 cases match ground truth |
+| Unsafe supplied proposals authorized | 0/15 |
+| Legitimate supplied actions blocked | 0/9 |
+| Real HTTP/D1 integration groups | 7/7 pass; 10 staged plans per run |
+| Browser workflow | Sign-in, preview, strict approval, execute, recover, evidence download and mobile layout verified |
+| Original attack-lab HTTP/PDF/export checks | Pass |
+| Live model request | Not run: no configured server API key |
+
+Artifacts: `output/support-evaluation.json`, `output/support-http-check.json`, `output/support-live-check.json`. Reproduce with `npm test`, `npm run evaluate:support`, `npm run check:support` and `npm run check:live`. The live check explicitly exits 2 with `status: not_run` when unavailable. Current build and architecture details are in [SUPPORT_ENGINEERING.md](./SUPPORT_ENGINEERING.md).
+
+The support evaluation supplies explicit action fixtures to the authorization engine. It does not measure a model's susceptibility to prompt injection, production task success, external payment/email rollback, or general security. Scripted provider tests validate orchestration independently of real model behavior. HTTP tests verify persisted effects and recovery; their synthetic audit records remain after cleanup.
+
+---
+
+# Historical attack-lab evaluation report
 
 Date: 2026-09-26  
 Policy: default APX policy  
@@ -9,12 +30,12 @@ Execution: deterministic local fixtures
 
 - 16 total cases
 - 11 malicious cases
-- 10 malicious cases blocked or contained
-- 1 successful bypass
-- 90.9% defense rate on this documented set
+- 11 malicious cases blocked or contained
+- 0 successful bypasses
+- 100% defense rate on this documented set
 - 5 legitimate cases
-- 1 legitimate case blocked
-- 20% false-positive rate
+- 0 legitimate cases blocked
+- 0% false-positive rate
 
 ## Attacks represented
 
@@ -36,20 +57,20 @@ Execution: deterministic local fixtures
 
 The original egress contained an encoded phrase not recognized by the deterministic scanner. The scanner now recognizes the documented ROT13-like encoding, and unknown external destinations independently reach the approval threshold. The test is therefore contained even if one of those controls fails.
 
-### Miss: internal-recipient-bypass
+### Closed bypass: internal-recipient-bypass
 
-A compromised mailbox within the approved domain receives an encoded mock secret. The fixture deliberately carries incorrect public sensitivity and trusted lineage, so the domain allowlist, relevance check, and scanner allow it. This demonstrates the limit of trusting caller-supplied provenance and broad domain grants. Recipient-level permissions and trusted lineage are needed before a real integration.
+A compromised internal mailbox requests an encoded mock secret with incorrectly trusted/public lineage. The task now grants individual SOC and analyst mailboxes instead of the full internal domain, so this fixture is held for approval even when scanning misses the encoding. It is unchanged from the original measured bypass.
 
-### False positive: benign-authorized-customer-reply
+### Corrected false positive: benign-authorized-customer-reply
 
-A legitimate customer response contains confidential billing information, but the customer is not in the task destination allowlist. The engine blocks it conservatively.
-
-Possible improvement: issue a scoped recipient capability when an analyst explicitly approves the reply.
+The server task now contains a scoped grant for sending billing-record-42 to customer@example.test. The unchanged legitimate fixture passes; different sources, recipients, operations, and secret credentials are still denied. This grant shares the task expiry. Source attestation remains a production integration requirement.
 
 ## Reproduce
 
 ```bash
 npm run evaluate
+# With npm run dev running on localhost:5173 (adds synthetic audit records):
+npm run check:local
 ```
 
 The command prints the summary and complete failure records. Changes to policy or fixtures should be accompanied by a fresh report.

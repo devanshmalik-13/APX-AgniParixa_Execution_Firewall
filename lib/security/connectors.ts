@@ -1,5 +1,5 @@
 import path from "node:path";
-import { canonicalWorkspacePath, emailBoundary, emailRecipient, filesystemBoundary, operationBoundary } from "./boundaries";
+import { canonicalWorkspacePath, credentialBoundary, emailBoundary, emailRecipient, filesystemBoundary, memoryBoundary, operationBoundary } from "./boundaries";
 import type { ActionRequest, TaskContext, ToolExecutionResult } from "./types";
 
 const workspaceFiles: Record<string, string> = {
@@ -67,6 +67,10 @@ export function executeDatabase(task: TaskContext, action: ActionRequest): ToolE
 }
 
 export function executeTool(task: TaskContext, action: ActionRequest): ToolExecutionResult {
+  const credentialViolation = credentialBoundary(action);
+  if (credentialViolation) throw new Error(credentialViolation);
+  const memoryViolation = memoryBoundary(action);
+  if (memoryViolation) throw new Error(memoryViolation);
   const operationViolation = operationBoundary(action);
   if (operationViolation) throw new Error(operationViolation);
   if (!task.allowedTools.includes(action.tool)) throw new Error("Tool is outside the task capability grant.");
@@ -84,7 +88,6 @@ export function executeTool(task: TaskContext, action: ActionRequest): ToolExecu
     return { executed: true, tool: action.tool, operation: action.operation, output: { simulated: true, mockOutboxId: id, recipient, sent: true, outboxCountInThisWorker: mockOutbox.length } };
   }
   if (action.tool === "write_memory") {
-    if (action.requestedBy.some((source) => source.trust === "untrusted")) throw new Error("Untrusted content cannot write memory.");
     const id = crypto.randomUUID();
     const fact = String(action.arguments.fact ?? action.content ?? "");
     mockMemory.push({ id, fact });

@@ -19,7 +19,8 @@ export function redactAuditValue<T>(value: T): T {
   if (typeof value === "string") return redactAuditText(value) as T;
   if (Array.isArray(value)) return value.map(redactAuditValue) as T;
   if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, redactAuditValue(item)])) as T;
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, isCredentialField(key) ? "[REDACTED]" : redactAuditValue(item)])) as T;
   }
   return value;
 }
+import { isCredentialField } from "./secret-scanner";

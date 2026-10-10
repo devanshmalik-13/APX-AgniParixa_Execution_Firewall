@@ -5,6 +5,17 @@ import { isExactDemoFixture } from "../lib/security/demo-fixture";
 import { constrainDemoIngress } from "../lib/security/ingress";
 import { simulateUnprotectedTool } from "../lib/security/connectors";
 import { attackScenarios } from "../lib/security/scenarios";
+import { actionRequestSchema } from "../lib/security/request-schema";
+
+test("schema validation and JSON key order do not change fixture identity", () => {
+  for (const scenario of attackScenarios) {
+    const action = proposeAction(scenario.id, "easy", scenario.prompt);
+    const validated = actionRequestSchema.parse(action);
+    assert.equal(isExactDemoFixture(scenario.id, "easy", scenario.prompt, validated), true);
+    assert.equal(isExactDemoFixture(scenario.id, "easy", scenario.prompt, Object.fromEntries(Object.entries(validated).reverse())), true);
+    assert.equal(isExactDemoFixture(scenario.id, "easy", scenario.prompt, { ...validated, extra: true }), false);
+  }
+});
 
 for (const scenario of attackScenarios) {
   for (const level of attackLevels) {

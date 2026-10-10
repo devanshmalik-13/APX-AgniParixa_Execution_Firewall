@@ -2,6 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { redactAuditText, redactAuditValue } from "../lib/security/audit-redaction";
 
+test("structured credential fields are redacted even without recognizable token syntax", () => {
+  const value = { arguments: { password: "synthetic-passphrase", nested: [{ apiKey: "short-demo-key", authorization: "custom-scheme-value" }] } };
+  const safe = JSON.stringify(redactAuditValue(value));
+  assert.doesNotMatch(safe, /synthetic-passphrase|short-demo-key|custom-scheme-value/);
+  assert.equal(value.arguments.password, "synthetic-passphrase");
+});
+
 test("known credentials are removed from prompts and nested action payloads", () => {
   const prompt = "api_key=sk-demo_1234567890abcdef bearer abcdefghijklmnopqrstuvwxyz123456";
   const value = { prompt, action: { arguments: { note: "password: hunter2" } } };

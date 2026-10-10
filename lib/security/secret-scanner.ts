@@ -1,5 +1,7 @@
+import type { ActionRequest } from "./types";
+
 export interface SecretMatch {
-  type: "api_key" | "bearer_token" | "private_key" | "credit_card" | "encoded_secret";
+  type: "api_key" | "bearer_token" | "private_key" | "credit_card" | "encoded_secret" | "credential_value";
   preview: string;
 }
 
@@ -8,7 +10,27 @@ const detectors: Array<{ type: SecretMatch["type"]; pattern: RegExp }> = [
   { type: "bearer_token", pattern: /\bbearer\s+[a-z0-9._~+\/-]{20,}=*\b/gi },
   { type: "private_key", pattern: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g },
   { type: "credit_card", pattern: /\b(?:\d[ -]*?){13,19}\b/g },
+  { type: "credential_value", pattern: /\b(?:api[_ -]?key|password|secret|access[_ -]?token|auth[_ -]?token)\s*[:=]\s*["']?[^\s,;"']+/gi },
 ];
+
+export function isCredentialField(key: string): boolean {
+  return /^(?:api[_ -]?key|password|secret|client[_ -]?secret|access[_ -]?token|auth[_ -]?token|private[_ -]?key|authorization)$/i.test(key);
+}
+
+/** Inspect the actual tool payload, including nested arguments, not only its summary. */
+export function scanActionForSecrets(action: ActionRequest): SecretMatch[] {
+  const matches = scanForSecrets(action.content);
+  function visit(value: unknown, key = "") {
+    if (isCredentialField(key) && value !== null && value !== undefined && value !== "") {
+      matches.push({ type: "credential_value", preview: "[REDACTED]" });
+    }
+    if (typeof value === "string") matches.push(...scanForSecrets(value));
+    else if (Array.isArray(value)) value.forEach((item) => visit(item));
+    else if (value && typeof value === "object") Object.entries(value).forEach(([name, item]) => visit(item, name));
+  }
+  visit(action.arguments);
+  return matches;
+}
 
 function redact(value: string): string {
   if (value.length <= 8) return "••••";

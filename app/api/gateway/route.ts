@@ -10,10 +10,15 @@ import { isExactDemoFixture } from "@/lib/security/demo-fixture";
 
 export async function POST(request: Request) {
   let promptId: string | undefined;
+  let raw: Record<string, unknown>;
   try {
-    const raw = await request.json() as Record<string, unknown>;
+    raw = await request.json() as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
+  }
+  try {
     const prompt = typeof raw?.prompt === "string" ? raw.prompt : "";
-    if (!prompt || prompt.length > 10_000) return NextResponse.json({ error: "Prompt must be 1–10,000 characters." }, { status: 400 });
+    if (!prompt.trim() || prompt.length > 10_000) return NextResponse.json({ error: "Prompt must be 1–10,000 non-blank characters." }, { status: 400 });
     const fixture = isExactDemoFixture(raw?.scenarioId, raw?.attackLevel, prompt, raw?.action);
     const requestedActor = demoActors.find((actor) => actor.id === raw?.actorId);
     const actor = requestedActor ?? (typeof raw?.scenarioId === "string" ? actorForScenario(raw.scenarioId) : demoActors[4]);
@@ -21,7 +26,7 @@ export async function POST(request: Request) {
     const entry = await recordPrompt({ prompt, source: fixture ? "replay" : "custom", scenarioId: typeof raw?.scenarioId === "string" ? raw.scenarioId : undefined, groundTruth: fixture ? "attack" : "unknown", actorId: actor.id, actorName: actor.name, attackLevel: level });
     promptId = entry.id;
     const body = gatewayRequestSchema.parse(raw);
-    const constrained = constrainDemoIngress(body.action, body.mode, fixture);
+    const constrained = constrainDemoIngress(body.action, body.mode, fixture, body.prompt);
     const result = await runGateway(demoTask, constrained.action, constrained.mode, entry.id);
     const auditIdentity = await getStoredAttribution(entry.id);
     return NextResponse.json({ ...result, auditIdentity });

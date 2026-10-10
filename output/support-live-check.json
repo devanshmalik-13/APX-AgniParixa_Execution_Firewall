@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-10T13:38:00.774Z",
+  "status": "not_run",
+  "scenario": "normal",
+  "mode": "live",
+  "ticketId": "tkt-1042",
+  "executionPerformed": false,
+  "checks": [],
+  "scope": "When live mode is configured, this checker verifies one actual provider-backed support-agent planning run through the local authenticated app. It rejects the plan after inspection and never executes refunds, invoice writes, queued messages, or email delivery. Status not_run means no provider request occurred. This is a smoke check, not an attack-success-rate benchmark.",
+  "baseUrl": "http://localhost:5173",
+  "liveAvailable": false,
+  "configuredModel": "gpt-5-mini",
+  "reason": "The app has no server-configured OpenAI API key. No model request was made. Configure credentials through the secure setup, restart the local app if necessary, and run this check again.",
+  "totalElapsedMs": 180
+}

@@ -1,4 +1,33 @@
 import type { ActionRequest, TaskContext } from "./types";
+import { scanActionForSecrets } from "./secret-scanner";
+
+export function credentialBoundary(action: ActionRequest): string | null {
+  if (scanActionForSecrets(action).some((match) => match.type !== "credit_card")
+    || (action.tool !== "read_document" && action.requestedBy.some((source) => source.sensitivity === "secret"))) {
+    return "This task does not grant tools permission to receive or disclose credentials, even at an approved destination.";
+  }
+  return null;
+}
+
+export function memoryBoundary(action: ActionRequest): string | null {
+  if (action.tool !== "write_memory") return null;
+  if (action.requestedBy.some((source) => source.trust === "untrusted")) return "Untrusted content cannot write memory.";
+  const fact = `${action.content ?? ""} ${String(action.arguments.fact ?? "")}`;
+  if (action.changesAuthorization || /\b(?:approved|trusted)\s+(?:administrator|admin|recipient|user)\b|\b(?:grant|bypass|disable|override)\b.{0,60}\b(?:access|permissions?|authorization|security|policy)\b/i.test(fact)) {
+    return "Preference memory cannot change authorization or grant privileges.";
+  }
+  return null;
+}
+
+export function destinationAllowed(task: TaskContext, action: ActionRequest): boolean {
+  const destination = action.tool === "send_email" ? emailRecipient(action) : action.destination;
+  if (!destination) return true;
+  if (task.allowedDestinations.some((entry) => destination === entry || destination.endsWith(`@${entry}`))) return true;
+  return action.tool === "send_email" && Boolean(task.recipientGrants?.some((grant) =>
+    destination === grant.recipient && grant.operations.includes(action.operation)
+    && action.requestedBy.length > 0
+    && action.requestedBy.every((source) => grant.sourceIds.includes(source.sourceId) && source.sensitivity !== "secret")));
+}
 
 /** Paths belong to the virtual POSIX workspace, never the host filesystem. */
 export function canonicalWorkspacePath(value: unknown): string {

@@ -5,7 +5,9 @@ export const demoTask: TaskContext = {
   description: "Summarize the customer's billing issue and draft an internal response.",
   allowedTools: ["read_document", "send_email", "write_memory", "filesystem", "database"],
   allowedData: ["support_ticket", "billing_status", "billing-policy", "style-guide"],
-  allowedDestinations: ["velloe.internal"],
+  allowedDestinations: ["soc@velloe.internal", "analyst@velloe.internal"],
+  // Server-owned authorization for this synthetic customer's billing record only.
+  recipientGrants: [{ recipient: "customer@example.test", operations: ["send"], sourceIds: ["billing-record-42"] }],
   tenantId: "velloe-demo",
   expiresAt: "2099-12-31T23:59:59.000Z",
   filesystem: { root: "/workspace", operations: ["read", "list", "write"] },

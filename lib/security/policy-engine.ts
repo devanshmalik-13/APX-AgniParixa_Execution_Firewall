@@ -1,6 +1,7 @@
-import { scanForSecrets } from "./secret-scanner";
+import { scanActionForSecrets } from "./secret-scanner";
+import { requestsCredentialDisclosure } from "./prompt-policy";
 import { detectBehaviorNovelty } from "./novelty-detector";
-import { emailBoundary, emailRecipient, filesystemBoundary, operationBoundary } from "./boundaries";
+import { credentialBoundary, destinationAllowed, emailBoundary, emailRecipient, filesystemBoundary, memoryBoundary, operationBoundary } from "./boundaries";
 import type {
   ActionRequest,
   EnforcementMode,
@@ -33,11 +34,6 @@ function canonicalPosixPath(value: string): string {
   return `/${segments.join("/")}`;
 }
 
-function outsideAllowedDestinations(destination: string | undefined, allowed: string[]): boolean {
-  if (!destination) return false;
-  return !allowed.some((entry) => destination === entry || destination.endsWith(`@${entry}`));
-}
-
 export function evaluateAction(
   task: TaskContext,
   action: ActionRequest,
@@ -47,10 +43,31 @@ export function evaluateAction(
   const findings: PolicyFinding[] = [];
   const untrustedSources = action.requestedBy.filter((source) => source.trust === "untrusted");
   const sensitiveSources = action.requestedBy.filter((source) => ["confidential", "secret"].includes(source.sensitivity));
-  const secretMatches = scanForSecrets(action.content);
+  const secretMatches = scanActionForSecrets(action);
   const destination = action.tool === "send_email" ? emailRecipient(action) : action.destination;
-  const externalDestination = outsideAllowedDestinations(destination, task.allowedDestinations);
+  const externalDestination = !destinationAllowed(task, action);
   const novelty = detectBehaviorNovelty(task, action);
+
+  const credentialViolation = credentialBoundary(action);
+  if (credentialViolation) {
+    findings.push({ id: "credential-payload", title: "Protected credentials in tool payload", description: credentialViolation, severity: "critical", score: 100, hardBlock: true, evidence: { tool: action.tool, secretTypes: [...new Set(secretMatches.map((match) => match.type))] } });
+  }
+  const memoryViolation = memoryBoundary(action);
+  if (memoryViolation && untrustedSources.length === 0) {
+    findings.push({ id: "authorization-memory", title: "Preference memory cannot grant authority", description: memoryViolation, severity: "critical", score: 100, hardBlock: true, evidence: { operation: action.operation } });
+  }
+
+  if (requestsCredentialDisclosure(action.inputPrompt) || requestsCredentialDisclosure(action.content)) {
+    findings.push({
+      id: "credential-disclosure-request",
+      title: "Request to reveal protected credentials",
+      description: "This task does not grant permission to retrieve or disclose API keys, passwords, tokens, or other credentials.",
+      severity: "critical",
+      score: 100,
+      hardBlock: true,
+      evidence: { policy: "credential-disclosure", originalPromptChecked: action.inputPrompt !== undefined },
+    });
+  }
 
   // Retrieved content is data, never authority. Explicit attempts from an
   // untrusted source to destroy or alter protected security material are a
@@ -196,14 +213,14 @@ export function evaluateAction(
   } else if (externalDestination) {
     findings.push({
       id: "external-egress",
-      title: "External destination requires approval",
-      description: `${action.destination} is not in the task allowlist.`,
+      title: "Unapproved destination requires approval",
+      description: `${destination} is not authorized for this task and data scope.`,
       severity: "medium",
       // Unknown egress must never execute silently. Keep the score at the
       // approval threshold even when content inspection finds no secret.
       score: 40,
       hardBlock: false,
-      evidence: { destination: action.destination, allowedDestinations: task.allowedDestinations },
+      evidence: { destination, allowedDestinations: task.allowedDestinations },
     });
   }
 

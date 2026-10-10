@@ -9,6 +9,7 @@ export interface TaskContext {
   allowedTools: string[];
   allowedData: string[];
   allowedDestinations: string[];
+  recipientGrants?: Array<{ recipient: string; operations: string[]; sourceIds: string[] }>;
   tenantId?: string;
   expiresAt?: string;
   filesystem?: {
@@ -36,6 +37,8 @@ export interface ActionRequest {
   arguments: Record<string, unknown>;
   destination?: string;
   content?: string;
+  /** Original prompt bound by server ingress, never accepted from action JSON. */
+  inputPrompt?: string;
   requestedBy: DataLineage[];
   taskRelevance: number;
   changesAuthorization?: boolean;

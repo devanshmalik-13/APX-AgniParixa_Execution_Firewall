@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "APX — AgniParixa Execution Firewall",
-  description: "Every AI action must pass through AgniParixa. Enforce task boundaries and stop unsafe agent actions before impact.",
+  title: "APX — Safe execution for AI support agents",
+  description: "Preview AI support actions, enforce ticket-specific permissions, execute approved transactions, and recover supported changes.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
