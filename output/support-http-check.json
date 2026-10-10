@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-10T13:39:02.686Z",
+  "generatedAt": "2026-10-10T16:42:52.557Z",
   "baseUrl": "http://localhost:5173",
   "checks": [
     {
@@ -13,6 +13,10 @@
     },
     {
       "name": "staging has no connector effects, and reject is durable and idempotent",
+      "passed": true
+    },
+    {
+      "name": "provider-independent HTTP gateway uses trusted grants, exact receipts, and mandatory review",
       "passed": true
     },
     {
@@ -34,16 +38,17 @@
   ],
   "success": true,
   "plansCreated": [
-    "8126fbc7-318e-408b-be72-d45fbfaccacd",
-    "bec685ea-8020-4a47-a450-80baf8b6d697",
-    "5bf819c0-b4de-475a-a27b-f78f5cc08939",
-    "b73120a3-3035-4c6d-812d-c577821917e8",
-    "43ea8026-4f60-4652-8d29-f64700db15ff",
-    "5f72a99d-3be0-4c27-b815-202c965718cd",
-    "694713c3-f54e-4ed8-b1e5-3475cd700a9b",
-    "c777d70b-8644-4c4b-be0a-9c08e3a013eb",
-    "5b413fa8-2a92-4b9e-86e4-9f09eec55968",
-    "db72a698-77bb-422c-8ea4-7c223e983519"
+    "645492a1-f9f3-40bc-bdf9-3911fc789eea",
+    "f76a0abd-57c9-40af-81bf-732c33296e9f",
+    "3b33661e-6bae-4b2b-9c9e-29fbb8d48ab8",
+    "2ca630e0-d7fc-4041-9c34-0922f59ef85e",
+    "eb3aec34-7a04-4ec7-ac11-c977a48c577a",
+    "49c17830-c241-48a3-a398-2588ffb02a68",
+    "98883ee4-d19b-4cee-8e7e-39e951e1f183",
+    "aeed2b71-1b1f-48e8-bbc3-28a1e4bf90b4",
+    "c2537b33-d1b3-4a03-8588-af3208f00afe",
+    "fd4bc485-cecc-4802-8c79-26a7324e47e8",
+    "8783fda8-329e-4cf9-8f5e-1b54e069d495"
   ],
   "scope": "Local authenticated replay agent with actual durable D1 writes and a cancellable sandbox outbox. No model calls or mail delivery."
 }

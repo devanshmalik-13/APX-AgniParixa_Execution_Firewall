@@ -102,7 +102,8 @@ export async function verifyPlan(plan: SupportPlan, now = Date.now()): Promise<b
   try {
     const ticket = supportTickets.find((t) => t.id === plan.ticketId);
     const created = Date.parse(plan.createdAt);
-    if (!ticket || !Number.isFinite(created) || now >= Date.parse(plan.expiresAt) || created > now || !["standard", "strict"].includes(plan.profile)) return false;
+    if (!ticket || !Number.isFinite(created) || now >= Date.parse(plan.expiresAt) || created > now || !["standard", "strict"].includes(plan.profile) || !["replay", "live", "external"].includes(plan.mode)) return false;
+    if (plan.mode === "external" && (plan.profile !== "strict" || plan.model !== "external-proposal-v1")) return false;
     const expected = evaluateSupportActions(ticket, plan.invoiceBefore, plan.actions.map((a) => a.action), plan.profile, created);
     return plan.expiresAt === expected.grant.expiresAt && canonicalJson(plan.grant) === canonicalJson(expected.grant) && canonicalJson(plan.actions) === canonicalJson(expected.actions) && plan.receiptHash === await hashPlan(plan);
   } catch { return false; }

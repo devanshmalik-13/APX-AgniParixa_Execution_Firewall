@@ -1,7 +1,7 @@
 import { redactAuditText } from "../security/audit-redaction";
 import { scenarioContent } from "./fixtures";
 import { evaluateSupportActions, hashPlan, sanitizeSupportAction } from "./policy";
-import type { AgentTrace, PlanRequest, SupportAction, SupportInvoice, SupportPlan, SupportTicket } from "./types";
+import type { AgentTrace, ExternalProposalRequest, PlanRequest, SupportAction, SupportInvoice, SupportPlan, SupportTicket } from "./types";
 
 export interface AgentConfig { apiKey?: string; model: string }
 export interface ProposalResult { actions: SupportAction[]; trace: AgentTrace[]; summary: string }
@@ -61,4 +61,25 @@ export async function buildSupportPlan(ticket: SupportTicket, invoice: SupportIn
 
 export function ticketContent(ticket: SupportTicket, request: PlanRequest): string {
   return `${ticket.body}${scenarioContent[request.scenario]}${request.note ? `\n\n[Additional customer text — untrusted]\n${redactAuditText(request.note)}` : ""}`;
+}
+
+/** Provider-independent ingress: caller text, labels, and approvals convey no authority. */
+export async function buildExternalPlan(ticket: SupportTicket, invoice: SupportInvoice, request: ExternalProposalRequest): Promise<SupportPlan> {
+  const started = performance.now();
+  const now = Date.now();
+  const evaluated = evaluateSupportActions(ticket, invoice, request.actions.map(sanitizeSupportAction), "strict", now);
+  const plan: SupportPlan = {
+    id: crypto.randomUUID(), ticketId: ticket.id, createdAt: new Date(now).toISOString(),
+    expiresAt: evaluated.grant.expiresAt, mode: "external", model: "external-proposal-v1", scenario: "normal", profile: "strict",
+    summary: "An external planner submitted these actions. APX derived permissions from the assigned ticket and requires operator approval for every permitted action.",
+    grant: evaluated.grant, invoiceBefore: { ...invoice }, actions: evaluated.actions,
+    trace: [
+      { step: 1, tool: "gateway_ingress", decision: "validated", detail: "Accepted structured proposals only. Caller cannot supply a grant, owner, policy, or approval." },
+      ...evaluated.actions.map((decision, i) => ({ step: i + 2, tool: decision.action.type, decision: decision.decision, detail: `${decision.action.id}: ${decision.reasons.join(" ")} No connector ran.` })),
+    ],
+    receiptHash: "", status: "staged", approved: false, executedAt: null, recoveredAt: null,
+    invoiceAfter: null, latencyMs: Math.max(1, Math.round(performance.now() - started)),
+  };
+  plan.receiptHash = await hashPlan(plan);
+  return plan;
 }

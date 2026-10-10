@@ -4,6 +4,8 @@ APX turns an AI agent's proposed support actions into a reviewable, scoped trans
 
 The primary workspace is `/` (also `/support`). The original execution-firewall attack lab remains at `/lab`. This is an evolution of the existing hackathon project; the historical documentation below describes that earlier build.
 
+The implementation comparison at `/evaluation` evaluates five local control combinations on the same synthetic action proposals, explains the selected direction, and provides an external-proposal gateway inspector. `POST /api/execution/plans` stages provider-independent actions under server-owned grants and mandatory strict review. See [IMPLEMENTATION_DECISIONS.md](./IMPLEMENTATION_DECISIONS.md) for architecture decisions, integration contract, research and limits.
+
 ## Current end-to-end workflow
 
 1. Select a synthetic billing ticket and inspect its trusted customer/invoice assignment.
@@ -38,6 +40,7 @@ Replay works without a model-provider key and is labeled as a deterministic fixt
 npm run typecheck
 npm test
 npm run evaluate:support
+npm run evaluate:combinations
 npm run evaluate
 npm run check:support
 npm run check:live

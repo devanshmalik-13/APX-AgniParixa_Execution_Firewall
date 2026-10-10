@@ -1,5 +1,5 @@
 export type InvoiceStatus = "open" | "disputed" | "resolved";
-export type AgentMode = "replay" | "live";
+export type AgentMode = "replay" | "live" | "external";
 export type Scenario = "normal" | "injection" | "over-refund" | "cross-tenant" | "duplicate-refund";
 export type PolicyProfile = "standard" | "strict";
 
@@ -53,5 +53,7 @@ export interface SupportDashboard {
   config: { liveAvailable: boolean; model: string; sandbox: true };
 }
 export interface PlanRequest {
-  ticketId: string; mode: AgentMode; scenario: Scenario; profile: PolicyProfile; note?: string;
+  ticketId: string; mode: Exclude<AgentMode, "external">; scenario: Scenario; profile: PolicyProfile; note?: string;
 }
+/** An external agent supplies proposals only, never authority or approval. */
+export interface ExternalProposalRequest { ticketId: string; actions: SupportAction[] }

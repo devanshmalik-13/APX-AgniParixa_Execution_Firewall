@@ -13,6 +13,7 @@
     "test": "tsx --test tests/*.test.ts",
     "evaluate": "tsx scripts/evaluate-security.ts",
     "evaluate:support": "tsx scripts/evaluate-support.ts",
+    "evaluate:combinations": "tsx scripts/evaluate-combinations.ts",
     "check:support": "tsx scripts/check-support-http.ts",
     "check:live": "tsx scripts/check-support-live.ts",
     "typecheck": "tsc --noEmit",

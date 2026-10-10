@@ -9,7 +9,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { scenarioContent } from "@/lib/support/fixtures";
 import type {
-  ActionDecision, AgentMode, PolicyProfile, Scenario, SupportDashboard,
+  ActionDecision, PlanRequest, PolicyProfile, Scenario, SupportDashboard,
   SupportPlan, SupportTicket,
 } from "@/lib/support/types";
 
@@ -62,7 +62,7 @@ export function SupportWorkspace() {
   const [dashboard, setDashboard] = useState<SupportDashboard | null>(null);
   const [ticketId, setTicketId] = useState("");
   const [plan, setPlan] = useState<SupportPlan | null>(null);
-  const [mode, setMode] = useState<AgentMode>("replay");
+  const [mode, setMode] = useState<PlanRequest["mode"]>("replay");
   const [scenario, setScenario] = useState<Scenario>("normal");
   const [profile, setProfile] = useState<PolicyProfile>("standard");
   const [note, setNote] = useState("");
@@ -93,11 +93,20 @@ export function SupportWorkspace() {
     const controller = new AbortController();
     fetch("/api/support", { cache: "no-store", signal: controller.signal })
       .then((response) => readResponse<SupportDashboard>(response))
-      .then((next) => {
+      .then(async (next) => {
         if (controller.signal.aborted) return;
         setDashboard(next);
         setTicketId((current) => current || next.tickets[0]?.id || "");
         setAuthRequired(false);
+        const requestedPlanId = new URLSearchParams(window.location.search).get("plan");
+        if (requestedPlanId) {
+          const selected = next.plans.find((item) => item.id === requestedPlanId)
+            ?? (await readResponse<{ plan: SupportPlan }>(await fetch(`/api/support/plans/${encodeURIComponent(requestedPlanId)}`, { cache: "no-store", signal: controller.signal }))).plan;
+          if (controller.signal.aborted) return;
+          setTicketId(selected.ticketId);
+          setPlan(selected);
+          setPanel("review");
+        }
       })
       .catch((failure: unknown) => {
         if (!controller.signal.aborted) {
@@ -221,7 +230,7 @@ export function SupportWorkspace() {
           <span><b>APX<span className="apx-brand-dot">.</span></b><small>AUTHORIZED EXECUTION</small></span>
         </Link>
         <nav className="apx-nav" aria-label="Main navigation">
-          
+          <Link href="/evaluation" aria-label="Compare execution defenses"><FileText size={15} /><span className="hidden min-[400px]:inline">Compare</span></Link>
           <Link href="/lab"><FlaskConical size={15} /> Attack lab <ArrowRight size={13} /></Link>
         </nav>
         <span className="apx-environment"><span /> Sandbox environment</span>
@@ -274,7 +283,7 @@ export function SupportWorkspace() {
           <div id="workspace-review" role="tabpanel" aria-labelledby="dock-review" hidden={panel !== "review"} className="apx-focus-view apx-view-review"><section className="apx-panel apx-review-panel" ref={reviewRef} aria-labelledby="review-title">
               <div className="apx-panel-heading"><div><span className="apx-section-label">04 / REVIEW & EXECUTE</span><h2 id="review-title">The change preview</h2></div>{plan && <span className={`apx-badge apx-badge-${plan.status}`}>{plan.status}</span>}</div>
               {plan ? <>
-                <div className="apx-plan-summary"><p>{plan.summary}</p><div><span>{plan.mode === "live" ? `Live · ${plan.model}` : "Deterministic test replay"}</span><span>{plan.latencyMs} ms</span><span>{timestamp(plan.createdAt)}</span></div></div>
+                <div className="apx-plan-summary"><p>{plan.summary}</p><div><span>{plan.mode === "live" ? `Live · ${plan.model}` : plan.mode === "external" ? "External proposal · reviewed execution" : "Deterministic test replay"}</span><span>{plan.latencyMs} ms</span><span>{timestamp(plan.createdAt)}</span></div></div>
                 <div className="apx-review-counts"><span><span className="apx-dot green" /> {allowedCount} within grant or approval</span><span><span className="apx-dot red" /> {blockedCount} blocked · will be skipped</span></div>
                 <div className="apx-actions">{plan.actions.length ? plan.actions.map((item, index) => <ActionCard key={item.action.id} item={item} index={index} planStatus={plan.status} />) : <p className="apx-empty-copy">This plan proposes no executable actions.</p>}</div>
                 {plan.status === "staged" && <div className="apx-execute-panel">
@@ -314,7 +323,7 @@ export function SupportWorkspace() {
 <section className="apx-panel apx-activity" aria-labelledby="activity-title">
           <div className="apx-activity-heading"><div><span className="apx-section-label">DURABLE EVIDENCE</span><h2 id="activity-title">Every decision leaves a record</h2></div><div className="apx-tabs" role="tablist" aria-label="Stored activity"><button role="tab" id="tab-history" aria-controls="activity-history" aria-selected={activityTab === "history"} onClick={() => setActivityTab("history")}>Plans <span>{dashboard?.plans.length ?? 0}</span></button><button role="tab" id="tab-outbox" aria-controls="activity-outbox" aria-selected={activityTab === "outbox"} onClick={() => setActivityTab("outbox")}>Sandbox outbox <span>{dashboard?.outbox.length ?? 0}</span></button><button role="tab" id="tab-audit" aria-controls="activity-audit" aria-selected={activityTab === "audit"} onClick={() => setActivityTab("audit")}>Audit trail <span>{dashboard?.events.length ?? 0}</span></button></div></div>
           <div role="tabpanel" id={`activity-${activityTab}`} aria-labelledby={`tab-${activityTab}`} className="apx-activity-content">
-            {activityTab === "history" && (dashboard?.plans.length ? <div className="apx-history-list"><div className="apx-history-labels"><span>Task / plan</span><span>Agent mode</span><span>Created</span><span>State</span><span /></div>{dashboard.plans.map((item) => <button key={item.id} disabled={!!busy} className={`apx-history-row ${plan?.id === item.id ? "selected" : ""}`} onClick={() => choosePlan(item)}><span><b>{dashboard.tickets.find((ticket) => ticket.id === item.ticketId)?.customerName ?? item.ticketId}</b><small>{item.scenario.replaceAll("-", " ")} · {item.id}</small></span><span>{item.mode === "live" ? "Live model" : "Test replay"}</span><span>{timestamp(item.createdAt)}</span><span><span className={`apx-badge apx-badge-${item.status}`}>{item.status}</span></span><ArrowRight size={15} /></button>)}</div> : <EmptyState icon={<FileText size={23} />} title="No plans recorded yet" detail="Stage a task to create the first durable action plan." />)}
+            {activityTab === "history" && (dashboard?.plans.length ? <div className="apx-history-list"><div className="apx-history-labels"><span>Task / plan</span><span>Agent mode</span><span>Created</span><span>State</span><span /></div>{dashboard.plans.map((item) => <button key={item.id} disabled={!!busy} className={`apx-history-row ${plan?.id === item.id ? "selected" : ""}`} onClick={() => choosePlan(item)}><span><b>{dashboard.tickets.find((ticket) => ticket.id === item.ticketId)?.customerName ?? item.ticketId}</b><small>{item.scenario.replaceAll("-", " ")} · {item.id}</small></span><span>{item.mode === "live" ? "Live model" : item.mode === "external" ? "External proposal" : "Test replay"}</span><span>{timestamp(item.createdAt)}</span><span><span className={`apx-badge apx-badge-${item.status}`}>{item.status}</span></span><ArrowRight size={15} /></button>)}</div> : <EmptyState icon={<FileText size={23} />} title="No plans recorded yet" detail="Stage a task to create the first durable action plan." />)}
             {activityTab === "outbox" && <><p className="apx-outbox-disclaimer"><Mail size={14} /> Sandbox only. These messages are stored in the sandbox and are never delivered.</p>{dashboard?.outbox.length ? <div className="apx-outbox-list">{dashboard.outbox.map((message) => <details key={message.id} className="apx-outbox-item"><summary><Mail size={16} /><span><b>{message.subject}</b><small>To {message.to} · {timestamp(message.createdAt)}</small></span><span className={`apx-badge ${message.status === "cancelled" ? "apx-badge-rejected" : "apx-badge-staged"}`}>{message.status}</span><ChevronDown size={14} /></summary><div className="apx-message-body">{message.body}</div><div className="apx-outbox-plan"><code>{message.planId}</code><button className="apx-text-button" disabled={!!busy} onClick={() => { const found = dashboard.plans.find((item) => item.id === message.planId); if (found) choosePlan(found); }}>Review originating plan<ArrowRight size={12} /></button></div></details>)}</div> : <EmptyState icon={<Mail size={23} />} title="The sandbox outbox is empty" detail="Execute a permitted reply action to queue a message here." />}</>}
             {activityTab === "audit" && (dashboard?.events.length ? <div className="apx-audit-list">{dashboard.events.map((event) => <div className="apx-audit-row" key={event.id}><time>{timestamp(event.at)}</time><span className="apx-audit-dot" /><div><b>{event.event.replaceAll("_", " ")}</b><p>{event.detail}</p><button className="apx-text-button" disabled={!!busy} onClick={() => { const found = dashboard.plans.find((item) => item.id === event.planId); if (found) choosePlan(found); }}>{event.planId}<ArrowRight size={11} /></button></div></div>)}</div> : <EmptyState icon={<ShieldCheck size={23} />} title="No audit events yet" detail="Staging, execution, rejection, and recovery are recorded here." />)}
           </div>

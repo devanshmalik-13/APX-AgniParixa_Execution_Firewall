@@ -1,7 +1,8 @@
-import { buildSupportPlan } from "./agent";
+import { buildExternalPlan, buildSupportPlan } from "./agent";
+import { externalProposalSchema } from "../execution/request";
 import { supportInvoices, supportTickets } from "./fixtures";
 import { canonicalJson, evaluateSupportActions, hashPlan, verifyPlan } from "./policy";
-import type { OutboxMessage, PlanRequest, SupportAuditEvent, SupportDashboard, SupportInvoice, SupportPlan, SupportTicket } from "./types";
+import type { ExternalProposalRequest, OutboxMessage, PlanRequest, SupportAuditEvent, SupportDashboard, SupportInvoice, SupportPlan, SupportTicket } from "./types";
 
 export class SupportStoreError extends Error {
   constructor(public readonly status: number, message: string) { super(message); this.name = "SupportStoreError"; }
@@ -81,6 +82,26 @@ export function createSupportStore(db: D1Database, config: SupportStoreConfig) {
       config: { liveAvailable: Boolean(config.apiKey), model: config.model, sandbox: true } };
   }
 
+  async function persistPlan(owner: string, ticket: SupportTicket, plan: SupportPlan): Promise<SupportPlan> {
+    if (plan.ticketId !== ticket.id || !(await verifyPlan(plan))) throw new SupportStoreError(503, "The proposed plan failed its integrity check.");
+    await db.batch([
+      prepare("INSERT INTO support_plans(owner_id,id,ticket_id,created_at,expires_at,receipt_hash,immutable_json,status,approved) VALUES (?,?,?,?,?,?,?,?,0)",
+        owner, plan.id, ticket.id, plan.createdAt, plan.expiresAt, plan.receiptHash, JSON.stringify(plan), "staged"),
+      event(owner, plan.id, plan.createdAt, "plan_staged", `Staged ${plan.actions.length} actions; ${plan.actions.filter((action) => action.decision === "block").length} blocked by policy. No connector ran.`),
+    ]);
+    return plan;
+  }
+
+  async function stageExternal(owner: string, proposal: ExternalProposalRequest): Promise<SupportPlan> {
+    const request = externalProposalSchema.parse(proposal);
+    await seed(owner);
+    const ticket = await getTicket(owner, request.ticketId);
+    if (!ticket) throw new SupportStoreError(404, "Support ticket was not found.");
+    const invoice = await getInvoice(owner, ticket.invoiceId);
+    if (!invoice || invoice.tenantId !== ticket.tenantId || invoice.customerId !== ticket.customerId) throw new SupportStoreError(409, "Trusted ticket and invoice scope do not match.");
+    return persistPlan(owner, ticket, await buildExternalPlan(ticket, invoice, request));
+  }
+
   async function stage(owner: string, request: PlanRequest): Promise<SupportPlan> {
     await seed(owner);
     const ticket = await getTicket(owner, request.ticketId);
@@ -105,13 +126,7 @@ export function createSupportStore(db: D1Database, config: SupportStoreConfig) {
       }
     }
     const plan = await buildSupportPlan(ticket, invoice, request, config);
-    if (plan.ticketId !== ticket.id || !(await verifyPlan(plan))) throw new SupportStoreError(503, "The proposed plan failed its integrity check.");
-    await db.batch([
-      prepare("INSERT INTO support_plans(owner_id,id,ticket_id,created_at,expires_at,receipt_hash,immutable_json,status,approved) VALUES (?,?,?,?,?,?,?,?,0)",
-        owner, plan.id, ticket.id, plan.createdAt, plan.expiresAt, plan.receiptHash, JSON.stringify(plan), "staged"),
-      event(owner, plan.id, plan.createdAt, "plan_staged", `Staged ${plan.actions.length} actions; ${plan.actions.filter((action) => action.decision === "block").length} blocked by policy. No connector ran.`),
-    ]);
-    return plan;
+    return persistPlan(owner, ticket, plan);
   }
 
   async function operate(owner: string, id: string, input: PlanOperation): Promise<SupportPlan> {
@@ -205,5 +220,5 @@ export function createSupportStore(db: D1Database, config: SupportStoreConfig) {
     if (!committed) throw new SupportStoreError(503, "The committed plan could not be read.");
     return committed;
   }
-  return { dashboard, stage, get, operate };
+  return { dashboard, stage, stageExternal, get, operate };
 }

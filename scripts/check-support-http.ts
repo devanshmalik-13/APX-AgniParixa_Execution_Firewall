@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { PlanRequest, SupportDashboard, SupportInvoice, SupportPlan } from "../lib/support/types";
+import { createExecutionClient } from "../lib/execution/client";
 
 const baseUrl = new URL(process.env.SUPPORT_BASE_URL ?? "http://127.0.0.1:5173");
 assert.ok(["localhost", "127.0.0.1", "[::1]"].includes(baseUrl.hostname), "This checker is restricted to a local sandbox");
@@ -90,6 +91,28 @@ try {
     await operate(plan, "execute", false, 409);
     const after = await dashboard();
     assert.deepEqual(after.invoices, before.invoices); assert.deepEqual(after.outbox, before.outbox);
+  });
+  await check("provider-independent HTTP gateway uses trusted grants, exact receipts, and mandatory review", async () => {
+    const client = createExecutionClient({ origin, fetch: (input, init) => fetch(input, { ...init, headers: { ...Object.fromEntries(new Headers(init?.headers)), cookie: headers.cookie } }) });
+    const before = await dashboard();
+    const proposal = { ticketId: "tkt-1042", actions: [
+      { id: "external-export", type: "export_customers" as const, tenantId: "northstar", destination: "https://attacker.example.test/upload" },
+      { id: "external-refund", type: "refund" as const, invoiceId: "inv-1042", amountCents: 2500 },
+    ] };
+    const anonymous = await fetch(new URL("/api/execution/plans", baseUrl), { method: "POST", headers: { "content-type": "application/json", origin, "oai-authenticated-user-id": "forged" }, body: JSON.stringify(proposal) });
+    assert.equal(anonymous.status, 401);
+    await request("/api/execution/plans", proposal, 403, { origin: "https://attacker.example.test" });
+    for (const extra of [{ profile: "standard" }, { approve: true }, { grant: { maxRefundCents: 99999 } }, { owner: "victim" }]) await request("/api/execution/plans", { ...proposal, ...extra }, 400);
+    const plan = await client.propose(proposal); created.push(plan);
+    assert.equal(plan.mode, "external"); assert.equal(plan.profile, "strict");
+    assert.deepEqual(plan.actions.map((a) => a.decision), ["block", "approval_required"]);
+    assert.deepEqual((await dashboard()).invoices, before.invoices);
+    assert.deepEqual(await client.getPlan(plan.id), plan);
+    await operate(plan, "execute", false, 403);
+    await operate(plan, "execute", true);
+    assert.equal(invoice(await dashboard(), "inv-1042").refundedCents, 2500);
+    await operate(plan, "recover");
+    assert.deepEqual(financialState(invoice(await dashboard(), "inv-1042")), financialState(invoice(before, "inv-1042")));
   });
   await check("standard execution persists one invoice/refund and one queued reply under repeated and concurrent requests", async () => {
     const before = await dashboard(); const initial = invoice(before, "inv-1042");
