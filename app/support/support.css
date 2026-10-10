@@ -49,7 +49,7 @@
 .apx-alert-success { color: #b6d7aa; background: #caf58805; border-color: #caf58820; }
 .apx-work-grid { display: grid; grid-template-columns: 256px minmax(0, 1fr) 285px; gap: 16px; align-items: start; }
 .apx-panel { border: 1px solid var(--apx-border); border-radius: 12px; background: var(--apx-panel); overflow: hidden; }
-.apx-ticket-panel { position: sticky; top: 16px; }
+.apx-ticket-panel { position: static; }
 .apx-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 20px 20px 17px; }
 .apx-section-label { display: block; font-size: 9px; font-weight: 600; letter-spacing: .14em; color: #789484; margin-bottom: 5px; }
 .apx-panel-heading h2, .apx-activity-heading h2 { font-size: 14px; font-weight: 570; letter-spacing: -.02em; }
