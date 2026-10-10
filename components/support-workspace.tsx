@@ -239,6 +239,8 @@ export function SupportWorkspace() {
           <a href="#activity-title"><span>04</span><div>Inspect evidence<small>History & recovery</small></div><FileText size={16} /></a>
         </nav>
 
+        <div className="apx-layout">
+          <div className="apx-primary">
         <div className="apx-work-grid">
           <aside id="ticket-queue" className="apx-ticket-panel apx-panel" aria-label="Support ticket queue">
             <div className="apx-panel-heading"><div><span className="apx-section-label">01 / INBOX</span><h2>Customer requests</h2></div><span className="apx-counter">{dashboard?.tickets.length ?? "—"}</span></div>
@@ -283,17 +285,7 @@ export function SupportWorkspace() {
 
           </div>
 
-          <aside className="apx-right">
-            <section className="apx-panel apx-grant-panel" aria-labelledby="grant-title"><div className="apx-panel-heading"><div><span className="apx-section-label">TRUSTED APPLICATION SCOPE</span><h2 id="grant-title">Task permission grant</h2></div><LockKeyhole size={18} className="apx-accent" /></div>
-              <div className="apx-grant-note"><ShieldCheck size={15} /><span>{plan ? "Derived on the server from this ticket's records." : "A grant is issued when the task is staged."}</span></div>
-              <dl className="apx-grant-list"><GrantRow label="Tenant" value={plan?.grant.tenantId ?? selectedTicket?.tenantId} /><GrantRow label="Customer" value={plan?.grant.customerId ?? selectedTicket?.customerId} /><GrantRow label="Invoice" value={plan?.grant.invoiceId ?? selectedTicket?.invoiceId} /><GrantRow label="Reply recipient" value={plan?.grant.recipient ?? selectedTicket?.customerEmail} /><GrantRow label="Refund maximum" value={plan ? money(plan.grant.maxRefundCents) : "Issued on staging"} /><GrantRow label="Without approval" value={plan ? money(Math.min(plan.grant.autoRefundCents, plan.grant.maxRefundCents)) : "Profile-dependent"} /><GrantRow label="Action budget" value={plan ? `${plan.grant.maxActions} actions` : "Issued on staging"} /><GrantRow label="Expires" value={plan ? timestamp(plan.grant.expiresAt) : "Short-lived grant"} /></dl>
-              <div className="apx-grant-boundary"><span className="apx-dot green" />One task. One customer. One invoice.</div>
-            </section>
-            <section className="apx-panel apx-trace-panel" aria-labelledby="trace-title"><div className="apx-panel-heading"><div><span className="apx-section-label">OBSERVABLE EXECUTION</span><h2 id="trace-title">Tool trace</h2></div><span className="apx-counter">{plan?.trace.length ?? 0}</span></div>
-              {plan?.trace.length ? <ol className="apx-trace">{plan.trace.map((entry, index) => <li key={`${entry.step}-${index}`}><span className={`apx-trace-marker ${entry.decision.includes("block") ? "blocked" : entry.decision.includes("approval") ? "review" : ""}`}>{entry.decision.includes("block") ? <X size={11} /> : entry.decision.includes("approval") ? <LockKeyhole size={10} /> : <Check size={11} />}</span><div><div className="apx-trace-heading"><b>{entry.tool.replaceAll("_", " ")}</b><small>{entry.decision.replaceAll("_", " ")}</small></div><p>{entry.detail}</p></div></li>)}</ol> : <p className="apx-empty-copy">Agent reads and proposed tool calls appear here after staging.</p>}
-            </section>
-            <div className="apx-sandbox-note"><Database size={18} /><div><b>A working support workflow, a safe sandbox</b><p>Invoice changes and evidence are persisted. Refunds are ledger entries, and replies stay in the sandbox outbox. No money moves and no real email is sent.</p></div></div>
-          </aside>
+
         </div>
 
             <section className="apx-panel apx-review-panel" ref={reviewRef} aria-labelledby="review-title">
@@ -331,6 +323,19 @@ export function SupportWorkspace() {
             {activityTab === "audit" && (dashboard?.events.length ? <div className="apx-audit-list">{dashboard.events.map((event) => <div className="apx-audit-row" key={event.id}><time>{timestamp(event.at)}</time><span className="apx-audit-dot" /><div><b>{event.event.replaceAll("_", " ")}</b><p>{event.detail}</p><button className="apx-text-button" disabled={!!busy} onClick={() => { const found = dashboard.plans.find((item) => item.id === event.planId); if (found) choosePlan(found); }}>{event.planId}<ArrowRight size={11} /></button></div></div>)}</div> : <EmptyState icon={<ShieldCheck size={23} />} title="No audit events yet" detail="Staging, execution, rejection, and recovery are recorded here." />)}
           </div>
         </section>
+          </div>
+          <aside className="apx-right">
+            <section className="apx-panel apx-grant-panel" aria-labelledby="grant-title"><div className="apx-panel-heading"><div><span className="apx-section-label">TRUSTED APPLICATION SCOPE</span><h2 id="grant-title">Task permission grant</h2></div><LockKeyhole size={18} className="apx-accent" /></div>
+              <div className="apx-grant-note"><ShieldCheck size={15} /><span>{plan ? "Derived on the server from this ticket's records." : "A grant is issued when the task is staged."}</span></div>
+              <dl className="apx-grant-list"><GrantRow label="Tenant" value={plan?.grant.tenantId ?? selectedTicket?.tenantId} /><GrantRow label="Customer" value={plan?.grant.customerId ?? selectedTicket?.customerId} /><GrantRow label="Invoice" value={plan?.grant.invoiceId ?? selectedTicket?.invoiceId} /><GrantRow label="Reply recipient" value={plan?.grant.recipient ?? selectedTicket?.customerEmail} /><GrantRow label="Refund maximum" value={plan ? money(plan.grant.maxRefundCents) : "Issued on staging"} /><GrantRow label="Without approval" value={plan ? money(Math.min(plan.grant.autoRefundCents, plan.grant.maxRefundCents)) : "Profile-dependent"} /><GrantRow label="Action budget" value={plan ? `${plan.grant.maxActions} actions` : "Issued on staging"} /><GrantRow label="Expires" value={plan ? timestamp(plan.grant.expiresAt) : "Short-lived grant"} /></dl>
+              <div className="apx-grant-boundary"><span className="apx-dot green" />One task. One customer. One invoice.</div>
+            </section>
+            <section className="apx-panel apx-trace-panel" aria-labelledby="trace-title"><div className="apx-panel-heading"><div><span className="apx-section-label">OBSERVABLE EXECUTION</span><h2 id="trace-title">Tool trace</h2></div><span className="apx-counter">{plan?.trace.length ?? 0}</span></div>
+              {plan?.trace.length ? <ol className="apx-trace">{plan.trace.map((entry, index) => <li key={`${entry.step}-${index}`}><span className={`apx-trace-marker ${entry.decision.includes("block") ? "blocked" : entry.decision.includes("approval") ? "review" : ""}`}>{entry.decision.includes("block") ? <X size={11} /> : entry.decision.includes("approval") ? <LockKeyhole size={10} /> : <Check size={11} />}</span><div><div className="apx-trace-heading"><b>{entry.tool.replaceAll("_", " ")}</b><small>{entry.decision.replaceAll("_", " ")}</small></div><p>{entry.detail}</p></div></li>)}</ol> : <p className="apx-empty-copy">Agent reads and proposed tool calls appear here after staging.</p>}
+            </section>
+            <div className="apx-sandbox-note"><Database size={18} /><div><b>A working support workflow, a safe sandbox</b><p>Invoice changes and evidence are persisted. Refunds are ledger entries, and replies stay in the sandbox outbox. No money moves and no real email is sent.</p></div></div>
+          </aside>
+        </div>
         <footer className="apx-footer"><span><ShieldCheck size={14} /> APX · Task-scoped authorization & recovery</span><span>Build useful work. Make its effects reviewable.</span></footer>
       </div>
     </main>
