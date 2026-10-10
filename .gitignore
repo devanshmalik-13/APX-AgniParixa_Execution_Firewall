@@ -47,6 +47,7 @@ next-env.d.ts
 /outputs/
 /output/pdf/
 /tmp/pdfs/
+/tmp/checks/
 /work/
 
 # Observer inference dependencies and local model/runtime state.

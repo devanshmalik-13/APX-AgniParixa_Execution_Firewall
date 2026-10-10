@@ -61,9 +61,9 @@ npm run evaluate:observer
 
 The first checks real pretrained inference, HTTP validation and support/external-proposal approval boundaries, then rejects only its own staged test plans. It also calls the helper's authenticated loopback service directly to verify overlapping windows, records its actual time, and checks that the app returns unknown if its shorter deadline expires. It executes no refund or reply action. The second scans 12 authored development examples sequentially and writes actual model metadata, misses, false alarms and app round-trip measurements to `output/observer-evaluation.json`. These fixtures are not a held-out benchmark. Threshold tuning on these examples would not justify production accuracy or reduced human-review claims.
 
-The tested CPU/bfloat16 configuration took approximately 25 seconds for a 540-token, two-window input. The helper configures the app's maximum 15-second observer deadline, so that input correctly becomes unavailable/unknown in the app. Short-input p50/p95 measurements cannot be extrapolated to long tickets. An observer timeout also does not interrupt the service's already running CPU operation; further observations may briefly receive a busy response. A faster measured model/host is needed before relying on this for interactive long-input screening.
+The first tested CPU/bfloat16 run took approximately 25 seconds for a 540-token, two-window input and correctly became unavailable/unknown at the app's maximum 15-second deadline. A fresh 11 October run completed the same input in 13.18 seconds at the service and 13.32 seconds through the app. This variability matters: short-input p50/p95 measurements cannot be extrapolated to long tickets. An observer timeout also does not interrupt the service's already running CPU operation; further observations may briefly receive a busy response. A measured model/host with adequate latency margin is needed before relying on interactive long-input screening.
 
-Service tests run from this directory:
+From the project root, run `npm run test:observer`. The runner selects the isolated Python executable and service working directory on Windows, Linux and macOS. Extra pytest arguments can follow `--`. Alternatively, service tests run from this directory:
 
 ```powershell
 .venv/Scripts/python.exe -m pytest -q

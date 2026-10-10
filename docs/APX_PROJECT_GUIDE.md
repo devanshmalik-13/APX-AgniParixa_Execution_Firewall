@@ -4,7 +4,7 @@
 
 APX is a working prototype for transactional execution and recovery of AI support-agent actions. It combines a support workspace, an independent proposal gateway, a security comparison workspace, a pretrained prompt-injection observer, and the earlier attack laboratory. This guide explains the implementation, its purpose, its workflows, and the knowledge needed to understand it.
 
-Prepared on 11 October 2026. The implementation reviewed here is commit 004c934. The complete evaluation artifacts were generated on 10 October 2026; a fresh local readiness check on 11 October verified all five page routes and an actual short pretrained scan. The guide describes the local checkout; it does not imply that every local feature is deployed to the existing hosted site.
+Prepared and checked on 11 October 2026. The application implementation baseline is commit 004c934, with subsequent documentation and test-runner improvements. Automated tests, the build, policy evaluations and HTTP integration checks were rerun on 11 October. A local readiness check also verified all five page routes and an actual short pretrained scan. The guide describes the local checkout; it does not imply that every local feature is deployed to the existing hosted site.
 
 | Component | Current status | What that means |
 | --- | --- | --- |
@@ -258,9 +258,9 @@ PIGuard is the public model that has actually run in this checkout. The registry
 
 PIGuard's pinned revision is dd78b24e330193a22d2293ac66922dd4f982f563. Its model card lists MIT licensing [3]. The service reproduces the inspected first-token classifier head locally with trust_remote_code disabled. It verifies the original safetensors checksum, checks tensor names and shapes, and loads bounded chunks into the selected precision. It accepts no executable remote model class or pickle checkpoint.
 
-The recorded development evaluation contains six benign and six suspicious inputs. Ten received the expected label. One mixed-language attack was missed; one harmless quoted attack triggered a false alarm. There were no unknown results in those twelve short inputs. Warm sequential app-to-service p50 latency was 2,321 ms and p95 was 2,951 ms on this machine.
+The latest development evaluation contains six benign and six suspicious inputs. Ten received the expected label. One mixed-language attack was missed; one harmless quoted attack triggered a false alarm. There were no unknown results in those twelve short inputs. On the 11 October rerun, warm sequential app-to-service p50 latency was 1,079 ms and p95 was 1,439 ms on this machine.
 
-A separate 540-token input required two windows and took about 24.97 seconds at the inference service. The app timed out at about 15.01 seconds and correctly recorded unavailable/unknown. Therefore the short-input measurements do not establish interactive performance for long tickets.
+A separate 540-token input required two windows. The first recorded run took about 24.97 seconds at the service and correctly timed out at the app's 15-second deadline. On the 11 October rerun it completed in about 13.18 seconds at the service and 13.32 seconds through the app. Host conditions affect latency; short-input measurements do not establish reliable interactive performance for long tickets.
 
 The 0.9 threshold is experimental. Scores are not calibrated probabilities that an action is safe. These twelve authored examples are development fixtures, not a held-out benchmark, vendor comparison or measurement of reduced human-review effort. The observed miss, false alarm and long-input latency justify keeping the classifier advisory while collecting broader evidence.
 
@@ -299,6 +299,7 @@ The last complete implementation validation recorded 217 passing Node tests, 13 
 | output/support-live-check.json | Explicit not_run status until a real provider smoke test succeeds. |
 | output/combination-evaluation.json | Transparent local control comparison, decision reasons and selection criteria. |
 | output/local-readiness-check.json | Fresh local route readiness and one actual short pretrained scan; no execution or provider call. |
+| output/verification-check.json | Combined 11 October check record, the test-runner fix and the explicit unverified live-provider status. |
 
 The older /lab workspace preserves eight attack scenarios, four difficulty framings, synthetic actors, editable action JSON and unprotected/observe/enforce comparisons. Its mock proposal generator is deterministic; arbitrary edited language is not generally interpreted by an LLM. Custom submitted actions are forced through enforcement, and caller trust claims are downgraded. Weak modes are counterfactual demonstrations, not permission to perform their simulated dangerous effects.
 
@@ -347,10 +348,10 @@ $env:SUPPORT_BASE_URL='http://localhost:5173'
 npm run check:support
 npm run check:observer
 npm run evaluate:observer
-services/observer/.venv/Scripts/python.exe -m pytest -q services/observer/tests
+npm run test:observer
 ~~~
 
-Use localhost for the local app. This machine's dev server binds IPv6 loopback; 127.0.0.1 may not reach it. The support HTTP checker historically defaults to 127.0.0.1, so the explicit SUPPORT_BASE_URL above removes that mismatch. Observer checks include a long real-inference call and can take substantially longer than one short scan.
+Use localhost for the local app. This machine's dev server binds IPv6 loopback; 127.0.0.1 may not reach it. The support HTTP checker now defaults to localhost, matching the app's printed URL. The explicit SUPPORT_BASE_URL above also supports a different local port. Observer checks include a long real-inference call and can take substantially longer than one short scan.
 
 Run npm run check:live only after secure provider configuration and an app restart. It stages one actual provider-backed plan, inspects its trace and receipt, then rejects its own plan. It never executes refunds, invoice writes or replies. Missing credentials produce not_run. Quota, authentication and transport errors must be diagnosed rather than counted as successful evaluation.
 

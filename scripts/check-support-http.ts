@@ -5,7 +5,7 @@ import path from "node:path";
 import type { PlanRequest, SupportDashboard, SupportInvoice, SupportPlan } from "../lib/support/types";
 import { createExecutionClient } from "../lib/execution/client";
 
-const baseUrl = new URL(process.env.SUPPORT_BASE_URL ?? "http://127.0.0.1:5173");
+const baseUrl = new URL(process.env.SUPPORT_BASE_URL ?? "http://localhost:5173");
 assert.ok(["localhost", "127.0.0.1", "[::1]"].includes(baseUrl.hostname), "This checker is restricted to a local sandbox");
 const origin = baseUrl.origin;
 const headers = { "content-type": "application/json", origin, cookie: "__sites_local_auth=1" };

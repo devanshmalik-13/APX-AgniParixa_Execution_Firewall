@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-10T22:00:48.407Z",
+  "localDate": "2026-10-11",
+  "timezone": "Asia/Calcutta",
+  "applicationBaseline": "004c934",
+  "allAvailableChecksPassed": true,
+  "checks": [
+    {
+      "name": "TypeScript typecheck",
+      "command": "npm run typecheck",
+      "status": "passed"
+    },
+    {
+      "name": "Node tests",
+      "command": "node node_modules/tsx/dist/cli.mjs --test --test-concurrency=1 tests/*.test.ts",
+      "status": "passed",
+      "passed": 217,
+      "failed": 0
+    },
+    {
+      "name": "Observer service tests",
+      "command": "npm run test:observer",
+      "status": "passed",
+      "passed": 13,
+      "failed": 0
+    },
+    {
+      "name": "Production build",
+      "command": "npm run build",
+      "status": "passed"
+    },
+    {
+      "name": "Legacy gateway HTTP integration",
+      "command": "npm run check:local",
+      "status": "passed",
+      "includes": [
+        "redaction",
+        "concurrent approval",
+        "JSON export",
+        "prompt and user PDFs",
+        "16-case benchmark"
+      ]
+    },
+    {
+      "name": "Legacy policy evaluation",
+      "command": "npm run evaluate",
+      "status": "passed",
+      "cases": 16
+    },
+    {
+      "name": "Support policy evaluation",
+      "command": "npm run evaluate:support",
+      "status": "passed",
+      "cases": 20,
+      "unsafeAuthorized": 0
+    },
+    {
+      "name": "Five-control comparison",
+      "command": "npm run evaluate:combinations",
+      "status": "passed",
+      "cases": 29,
+      "baselines": 5
+    },
+    {
+      "name": "Support HTTP/D1 integration",
+      "command": "npm run check:support",
+      "status": "passed",
+      "groups": 8,
+      "defaultHostValidated": true,
+      "artifactGeneratedAt": "2026-10-10T22:00:28.215Z"
+    },
+    {
+      "name": "Actual pretrained observer HTTP integration",
+      "command": "npm run check:observer",
+      "status": "passed",
+      "groups": 6,
+      "longInputMeasurement": {
+        "serviceLatencyMs": 13177.878,
+        "appStatus": "observed",
+        "appLatencyMs": 13315,
+        "tokens": 540,
+        "segments": 2
+      }
+    },
+    {
+      "name": "Pretrained development evaluation",
+      "command": "npm run evaluate:observer",
+      "status": "completed",
+      "counts": {
+        "total": 12,
+        "classified": 12,
+        "suspiciousInputs": 6,
+        "benignInputs": 6,
+        "missedSuspiciousInputs": 1,
+        "falseAlarms": 1,
+        "unknown": 0
+      },
+      "latency": {
+        "metric": "warm sequential app-to-service round trip on this local machine",
+        "p50Ms": 1079,
+        "p95Ms": 1439
+      }
+    },
+    {
+      "name": "Live OpenAI planning",
+      "command": "npm run check:live",
+      "status": "not_run",
+      "reason": "The app has no server-configured OpenAI API key. No model request was made. Configure credentials through the secure setup, restart the local app if necessary, and run this check again.",
+      "providerRequestPerformed": false
+    }
+  ],
+  "fixes": [
+    {
+      "problem": "Observer pytest launched from the repository root could not import observer_service.",
+      "change": "Added cross-platform npm run test:observer runner using the isolated Python executable and correct service working directory; corrected setup documentation.",
+      "validation": "13 service tests passed through the new root-level command."
+    },
+    {
+      "problem": "The support checker defaulted to IPv4 127.0.0.1 while the local app listened on IPv6 localhost.",
+      "change": "Aligned the default with http://localhost:5173; SUPPORT_BASE_URL remains available for an override.",
+      "validation": "All eight HTTP/D1 groups passed using the plain npm command without a host override."
+    }
+  ],
+  "limitations": [
+    "Live provider verification is not_run because no OpenAI API key is configured.",
+    "Pretrained development examples still contain one missed suspicious input and one false alarm; passing integration checks does not imply perfect classification.",
+    "Responsive browser layout results remain the previously recorded checks; no frontend layout change was made in this run.",
+    "No hosted deployment or real payment/email integration was performed."
+  ]
+}

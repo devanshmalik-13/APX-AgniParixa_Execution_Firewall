@@ -47,14 +47,20 @@ Replay works without a model-provider key and is labeled as a deterministic fixt
 ```sh
 npm run typecheck
 npm test
+npm run test:observer
+npm run build
 npm run evaluate:support
 npm run evaluate:combinations
 npm run evaluate
 npm run check:support
+npm run check:observer
+npm run evaluate:observer
 npm run check:live
 ```
 
 `check:support` requires the running local app and writes synthetic test records. It recovers its successful executions; audit records and monotonically increasing invoice versions remain. Set `SUPPORT_BASE_URL` if your server differs from `http://localhost:5173`.
+
+`test:observer` uses the service's isolated Python environment and correct working directory. The observer HTTP and development-evaluation commands additionally require the running pretrained service. The latest combined result and remaining live-provider limitation are recorded in `output/verification-check.json`.
 
 `check:live` requires a configured provider and stages a real model plan without executing its write actions. It reports `not_run` with a nonzero exit status when a key is unavailable. Scripted provider tests exercise orchestration and failure handling without paid requests; they do not measure live model performance.
 
