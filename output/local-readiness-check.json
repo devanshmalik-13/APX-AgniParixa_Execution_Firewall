@@ -1,0 +1,49 @@
+{
+  "generatedAt": "2026-10-10T21:51:39.964Z",
+  "passed": true,
+  "scope": "Local route readiness and one actual short pretrained scan; no plan execution or provider call.",
+  "routes": [
+    {
+      "route": "/",
+      "status": 200
+    },
+    {
+      "route": "/support",
+      "status": 200
+    },
+    {
+      "route": "/evaluation",
+      "status": 200
+    },
+    {
+      "route": "/observer",
+      "status": 200
+    },
+    {
+      "route": "/lab",
+      "status": 200
+    }
+  ],
+  "sandbox": true,
+  "tickets": 3,
+  "liveAvailable": false,
+  "observer": {
+    "status": "observed",
+    "verdict": "benign",
+    "model": {
+      "key": "piguard",
+      "id": "leolee99/PIGuard",
+      "revision": "dd78b24e330193a22d2293ac66922dd4f982f563",
+      "device": "cpu",
+      "precision": "bfloat16"
+    },
+    "coverage": {
+      "complete": true,
+      "windowTokens": 512,
+      "overlapTokens": 64,
+      "totalTokens": 6,
+      "segments": 1
+    },
+    "roundTripMs": 804
+  }
+}

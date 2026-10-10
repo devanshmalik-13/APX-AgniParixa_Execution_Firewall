@@ -56,7 +56,7 @@ Support data is partitioned by the authenticated visitor ID injected by Sites. D
 
 - `npm test`: authorization, receipt integrity, provider-loop behavior, SQL fault rollback, isolation, concurrent retries, stale previews, approvals, expiry, refund replay and recovery. The policy suite also checks 250 seeded mixed-action batches.
 - `npm run evaluate:support`: 20 explicit action-policy cases. The results measure whether supplied unsafe proposals are authorized, not how often an LLM follows an injection.
-- `npm run check:support`: seven real HTTP/D1 test groups, including malformed/chunked bodies, origin/auth checks, five concurrent execution requests, durable reads, approvals, stale-plan rollback and all four attack replays. Test-owned successful executions are recovered.
+- `npm run check:support`: eight real HTTP/D1 test groups, including malformed/chunked bodies, origin/auth checks, five concurrent execution requests, durable reads, approvals, stale-plan rollback and all four attack replays. Test-owned successful executions are recovered.
 - Browser QA: sign-in, staging, source inspection, strict approval gating, execute, recover, outbox/audit inspection, evidence download and narrow-screen layout.
 - `npm run check:live`: a separate live-provider smoke test. A missing key produces `not_run`; scripted provider tests cannot substitute for a successful paid model request.
 

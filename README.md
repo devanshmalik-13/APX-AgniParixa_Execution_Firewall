@@ -8,6 +8,12 @@ The implementation comparison at `/evaluation` evaluates five local control comb
 
 The pretrained observer at `/observer` adds four focused panels with a floating bottom dock: Scan, Results, Setup and Method. Its separate authenticated Python service runs pinned injection classifiers; the app validates and seals shadow evidence into support-plan receipts without changing grants or mandatory approvals. Public PIGuard has been run locally on CPU in bfloat16; Meta Prompt Guard variants require the owner's gated model access and remain unverified. See [observer setup and verification](./services/observer/README.md) and [model research](./GUARD_MODEL_RESEARCH.md). Local inference does not enable the hosted site: hosting needs its own reachable HTTPS inference service.
 
+## Complete project guide
+
+Read [the project guide](./docs/APX_PROJECT_GUIDE.md) for the architecture, each workspace and workflow, authorization rules, atomic execution, recovery, observer results, demonstrations, prerequisites and resume positioning. It separates recorded implementation evidence from live-provider and hosting work that remains pending. A rendered copy is available locally at `output/pdf/APX_PROJECT_GUIDE.pdf`.
+
+The PDF renderer is `scripts/generate-project-guide.py`; run it in a Python environment with ReportLab installed. The guide's linked contents and model/transaction diagrams are generated from the editable Markdown source. `output/local-readiness-check.json` records the latest five-route readiness check and one actual short pretrained scan, without executing a plan or calling OpenAI.
+
 ## Current end-to-end workflow
 
 1. Select a synthetic billing ticket and inspect its trusted customer/invoice assignment.
