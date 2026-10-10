@@ -349,7 +349,7 @@
 .apx-focus .apx-feedback { flex-shrink: 0; max-height: 25vh; overflow: auto; }
 .apx-dock-zone { position: fixed; z-index: 40; bottom: 0; left: 50%; transform: translateX(-50%); width: min(570px, calc(100% - 24px)); height: 100px; }
 .apx-dock { position: absolute; bottom: max(12px, env(safe-area-inset-bottom)); width: 100%; display: flex; align-items: center; justify-content: space-around; gap: 4px; padding: 9px; border: 1px solid #caf58826; border-radius: 20px; background: #172122ed; backdrop-filter: blur(22px); box-shadow: 0 12px 45px #0009; transform: translateY(140%); transition: transform .25s ease; }
-.apx-dock-zone:hover .apx-dock, .apx-dock-zone:focus-within .apx-dock, .apx-dock-zone.pinned .apx-dock { transform: translateY(0); }
+.apx-dock-zone:hover .apx-dock, .apx-dock-zone:has(:focus-visible) .apx-dock, .apx-dock-zone.pinned .apx-dock { transform: translateY(0); }
 .apx-dock button { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 5px; min-width: 0; min-height: 54px; padding: 7px 4px; color: #8ca497; border: 1px solid transparent; border-radius: 12px; background: transparent; }
 .apx-dock button span { font-size: 10px; }
 .apx-dock button:hover { background: #ffffff08; color: #d3e6d8; }
@@ -357,7 +357,7 @@
 .apx-dock button i { position: absolute; top: 5px; right: 12px; width: 5px; height: 5px; border-radius: 50%; background: var(--apx-green); }
 .apx-dock-handle { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 7px; padding: 8px 15px; border-radius: 20px; border: 1px solid #caf58820; background: #162020; color: #a6b99f; font-size: 10px !important; transition: bottom .25s ease; }
 .apx-dock-handle > span { width: 20px; height: 3px; border-radius: 3px; background: #caf58870; }
-.apx-dock-zone:hover .apx-dock-handle, .apx-dock-zone:focus-within .apx-dock-handle, .apx-dock-zone.pinned .apx-dock-handle { bottom: 86px; }
+.apx-dock-zone:hover .apx-dock-handle, .apx-dock-zone:has(:focus-visible) .apx-dock-handle, .apx-dock-zone.pinned .apx-dock-handle { bottom: 86px; }
 @media (hover: none), (pointer: coarse) { .apx-dock { transform: none; } .apx-dock-handle { display: none; } }
 @media (max-width: 650px) {
   .apx-focus .apx-header { min-height: 58px; flex-wrap: nowrap; padding: 10px 16px; }
