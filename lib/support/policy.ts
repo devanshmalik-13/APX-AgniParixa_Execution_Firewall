@@ -87,14 +87,16 @@ export function canonicalJson(value: unknown): string {
   return `{${Object.entries(value).filter(([, v]) => v !== undefined).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(",")}}`;
 }
 /** Redaction cannot turn a denied proposal into a newly authorized action. */
-export function sanitizeSupportAction(action: SupportAction): SupportAction {
-  const safe = redactAuditValue(action) as SupportAction;
+export function sanitizeSupportAction(action: SupportAction, knownSecrets: readonly string[] = []): SupportAction {
+  const safe = redactAuditValue(action, knownSecrets) as SupportAction;
   return canonicalJson(safe) === canonicalJson(action) ? safe : { ...safe, redacted: true };
 }
 function receiptPayload(plan: SupportPlan) {
   return { id: plan.id, ticketId: plan.ticketId, createdAt: plan.createdAt, expiresAt: plan.expiresAt, mode: plan.mode, model: plan.model, scenario: plan.scenario, profile: plan.profile, summary: plan.summary, grant: plan.grant, invoiceBefore: plan.invoiceBefore, actions: plan.actions, trace: plan.trace, latencyMs: plan.latencyMs,
     // Old receipts keep their exact payload. New evidence cannot be silently replaced.
-    ...(plan.observer === undefined ? {} : { observer: plan.observer }) };
+    ...(plan.observer === undefined ? {} : { observer: plan.observer }),
+    ...(plan.provider === undefined ? {} : { provider: plan.provider }),
+    ...(plan.webEvidence === undefined ? {} : { webEvidence: plan.webEvidence }) };
 }
 export async function hashPlan(plan: SupportPlan): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonicalJson(receiptPayload(plan))));
@@ -105,7 +107,15 @@ export async function verifyPlan(plan: SupportPlan, now = Date.now()): Promise<b
     const ticket = supportTickets.find((t) => t.id === plan.ticketId);
     const created = Date.parse(plan.createdAt);
     if (!ticket || !Number.isFinite(created) || now >= Date.parse(plan.expiresAt) || created > now || !["standard", "strict"].includes(plan.profile) || !["replay", "live", "external"].includes(plan.mode)) return false;
-    if (plan.mode === "external" && (plan.profile !== "strict" || plan.model !== "external-proposal-v1")) return false;
+    if (plan.provider !== undefined && (plan.mode !== "live" || !["openai", "gemini", "groq", "openrouter"].includes(plan.provider))) return false;
+    if (plan.webEvidence !== undefined) {
+      const { webEvidenceSchema, sourceMatches } = await import("../tinyfish/types");
+      const { contentHash } = await import("../tinyfish/client");
+      const evidence = webEvidenceSchema.parse(plan.webEvidence);
+      if ((plan.mode !== "live" && !(plan.mode === "external" && plan.model === "tinyfish-reference-draft-v1")) || !sourceMatches(evidence.sourceId, evidence.url) || !sourceMatches(evidence.sourceId, evidence.finalUrl) || Date.parse(evidence.fetchedAt) > created || Date.parse(evidence.expiresAt) <= created || await contentHash(evidence.text) !== evidence.sha256) return false;
+    }
+    if (plan.mode === "external" && (plan.profile !== "strict" || !["external-proposal-v1", "tinyfish-reference-draft-v1"].includes(plan.model))) return false;
+    if (plan.model === "tinyfish-reference-draft-v1" && (!plan.webEvidence || plan.actions.length !== 1 || plan.actions[0].action.type !== "send_reply")) return false;
     const expected = evaluateSupportActions(ticket, plan.invoiceBefore, plan.actions.map((a) => a.action), plan.profile, created);
     return plan.expiresAt === expected.grant.expiresAt && canonicalJson(plan.grant) === canonicalJson(expected.grant) && canonicalJson(plan.actions) === canonicalJson(expected.actions) && plan.receiptHash === await hashPlan(plan);
   } catch { return false; }

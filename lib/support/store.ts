@@ -5,11 +5,13 @@ import { externalProposalSchema } from "../execution/request";
 import { supportInvoices, supportTickets } from "./fixtures";
 import { canonicalJson, evaluateSupportActions, hashPlan, verifyPlan } from "./policy";
 import type { ExternalProposalRequest, OutboxMessage, PlanRequest, SupportAuditEvent, SupportDashboard, SupportInvoice, SupportPlan, SupportTicket } from "./types";
+import type { PlannerConfig } from "./provider-config";
+import { loadWebEvidence } from "../tinyfish/store";
 
 export class SupportStoreError extends Error {
   constructor(public readonly status: number, message: string) { super(message); this.name = "SupportStoreError"; }
 }
-export interface SupportStoreConfig { apiKey?: string; model: string; observer?: ObserverClient }
+export interface SupportStoreConfig extends PlannerConfig { observer?: ObserverClient }
 export interface PlanOperation { operation: "execute" | "reject" | "recover"; receiptHash: string; approve: boolean }
 
 interface InvoiceRow {
@@ -82,7 +84,7 @@ export function createSupportStore(db: D1Database, config: SupportStoreConfig) {
     ]);
     return { tickets: tickets.results.map((row) => JSON.parse(row.ticket_json) as SupportTicket), invoices: invoices.results.map(invoiceFromRow),
       plans: plans.results.map(planFromRow), outbox: outbox.results, events: events.results,
-      config: { liveAvailable: Boolean(config.apiKey), model: config.model, sandbox: true } };
+      config: { liveAvailable: Boolean(config.apiKey), provider: config.provider ?? "openai", model: config.model, sandbox: true } };
   }
 
   async function persistPlan(owner: string, ticket: SupportTicket, plan: SupportPlan): Promise<SupportPlan> {
@@ -96,7 +98,14 @@ export function createSupportStore(db: D1Database, config: SupportStoreConfig) {
   }
 
   async function withObservation(plan: SupportPlan, customerContext: string): Promise<SupportPlan> {
-    const texts: ObserverInputText[] = [{ id: "customer-context", source: "customer_context", text: customerContext },
+    // The observer accepts 6,000 characters per text. Overlap long web context
+    // rather than omitting it or silently truncating security evidence.
+    const contextParts: ObserverInputText[] = [];
+    for (let offset = 0; offset < customerContext.length; offset += 5600) {
+      contextParts.push({ id: offset === 0 ? "customer-context" : `customer-context-${contextParts.length + 1}`, source: "customer_context", text: customerContext.slice(offset, offset + 6000) });
+      if (offset + 6000 >= customerContext.length) break;
+    }
+    const texts: ObserverInputText[] = [...contextParts,
       ...plan.actions.flatMap((decision, index): ObserverInputText[] => decision.action.type === "send_reply" ? [{ id: `reply-${index}`, source: "proposed_reply", text: `${decision.action.subject}\n${decision.action.body}` }] : [])];
     // A failure remains unknown, never a reason to remove or relax policy checks.
     try { plan.observer = await observer.observe({ texts }); }
@@ -112,8 +121,25 @@ export function createSupportStore(db: D1Database, config: SupportStoreConfig) {
     if (!ticket) throw new SupportStoreError(404, "Support ticket was not found.");
     const invoice = await getInvoice(owner, ticket.invoiceId);
     if (!invoice || invoice.tenantId !== ticket.tenantId || invoice.customerId !== ticket.customerId) throw new SupportStoreError(409, "Trusted ticket and invoice scope do not match.");
-    const plan = await buildExternalPlan(ticket, invoice, request);
+    const plan = await buildExternalPlan(ticket, invoice, request, config.apiKey ? [config.apiKey] : []);
     return persistPlan(owner, ticket, await withObservation(plan, ticket.body));
+  }
+
+  async function stageReference(owner: string, ticketId: string, evidenceId: string): Promise<SupportPlan> {
+    await seed(owner);
+    const ticket = await getTicket(owner, ticketId);
+    if (!ticket) throw new SupportStoreError(404, "Support ticket was not found.");
+    const invoice = await getInvoice(owner, ticket.invoiceId);
+    if (!invoice || invoice.tenantId !== ticket.tenantId || invoice.customerId !== ticket.customerId) throw new SupportStoreError(409, "Trusted ticket and invoice scope do not match.");
+    const evidence = await loadWebEvidence(db, owner, ticketId, evidenceId);
+    const plan = await buildExternalPlan(ticket, invoice, { ticketId, actions: [{ id: "reference-reply", type: "send_reply", to: ticket.customerEmail,
+      subject: `Re: ${ticket.subject}`,
+      body: `Hi ${ticket.customerName.split(" ")[0]},\n\nYour assigned invoice total is $${(invoice.amountCents / 100).toFixed(2)}. No refund or invoice change has been applied by this draft.\n\nPublic reference: ${evidence.title}\n${evidence.url}\n\nQuoted reference excerpt (general guidance, not Northstar policy):\n${evidence.text.slice(0, 1200)}\n\nThis draft needs operator review before it can enter the sandbox outbox.\nNorthstar Support` }] }, config.apiKey ? [config.apiKey] : []);
+    plan.model = "tinyfish-reference-draft-v1";
+    plan.summary = "TinyFish reference draft: a deterministic template quotes the retrieved public source and trusted invoice total. No LLM was called; no refund or invoice change is proposed. Review the quoted content before approving the sandbox reply.";
+    plan.webEvidence = evidence;
+    plan.trace = [{ step: 1, tool: "tinyfish_fetch", decision: "untrusted_reference", detail: `Reference ${evidence.url}; SHA-256 ${evidence.sha256}. No model inference or write authority.` }, ...plan.trace.map(item => ({ ...item, step: item.step + 1 }))];
+    return persistPlan(owner, ticket, await withObservation(plan, ticketContent(ticket, {ticketId, mode:"live", scenario:"normal", profile:"strict"}, evidence)));
   }
 
   async function stage(owner: string, request: PlanRequest): Promise<SupportPlan> {
@@ -122,7 +148,9 @@ export function createSupportStore(db: D1Database, config: SupportStoreConfig) {
     if (!ticket) throw new SupportStoreError(404, "Support ticket was not found.");
     const invoice = await getInvoice(owner, ticket.invoiceId);
     if (!invoice || invoice.tenantId !== ticket.tenantId || invoice.customerId !== ticket.customerId) throw new SupportStoreError(409, "Trusted ticket and invoice scope do not match.");
-    if (request.mode === "live" && !config.apiKey) throw new SupportStoreError(503, "Live mode requires a server-configured OpenAI API key. Replay remains available.");
+    if (request.webEvidenceId && request.mode !== "live") throw new SupportStoreError(400, "Web references are consumed only by live planning. Replay does not interpret web content.");
+    const webEvidence = request.webEvidenceId ? await loadWebEvidence(db, owner, ticket.id, request.webEvidenceId) : undefined;
+    if (request.mode === "live" && !config.apiKey) throw new SupportStoreError(503, "Live mode requires the selected provider's server-configured API key. Replay remains available.");
     if (request.mode === "live") {
       const token = crypto.randomUUID();
       const now = new Date().toISOString();
@@ -139,8 +167,8 @@ export function createSupportStore(db: D1Database, config: SupportStoreConfig) {
         throw new SupportStoreError(503, "A durable live planning reservation could not be created.");
       }
     }
-    const plan = await buildSupportPlan(ticket, invoice, request, config);
-    return persistPlan(owner, ticket, await withObservation(plan, ticketContent(ticket, request)));
+    const plan = await buildSupportPlan(ticket, invoice, request, config, webEvidence);
+    return persistPlan(owner, ticket, await withObservation(plan, ticketContent(ticket, request, webEvidence)));
   }
 
   async function operate(owner: string, id: string, input: PlanOperation): Promise<SupportPlan> {
@@ -234,5 +262,5 @@ export function createSupportStore(db: D1Database, config: SupportStoreConfig) {
     if (!committed) throw new SupportStoreError(503, "The committed plan could not be read.");
     return committed;
   }
-  return { dashboard, stage, stageExternal, get, operate };
+  return { dashboard, stage, stageExternal, stageReference, get, operate };
 }

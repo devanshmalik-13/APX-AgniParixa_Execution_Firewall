@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { WorkspaceHeader, WorkspaceHeading } from "@/components/workspace-chrome";
 import {
   ArrowDownToLine, ArrowRight, BarChart3, ChevronUp, Eye, FileSearch,
   Info, LoaderCircle, LockKeyhole, RefreshCw, Server, ShieldCheck, Ticket,
@@ -128,18 +129,15 @@ export function ObserverWorkspace() {
     } finally { lock.current = false; setBusy(null); }
   }
 
-  return <main className="apx-observer">
-    <header className="ob-header">
-      <a className="ob-brand" href="/" aria-label="APX support workspace"><span className="ob-brand-icon"><ShieldCheck size={21} strokeWidth={1.8} /></span><span><b>APX<span>.</span></b><small>AUTHORIZED EXECUTION</small></span></a>
-      <nav aria-label="Main navigation"><a href="/" aria-label="Support workspace"><Ticket size={15} /><span>Workspace</span></a><a href="/evaluation" aria-label="Compare execution defenses"><BarChart3 size={15} /><span>Compare</span></a></nav>
-    </header>
+  return <main className="apx-observer" data-verdict={observation?.verdict ?? "unknown"}>
+    <WorkspaceHeader active="observer" />
     <div className="ob-shell">
-      <div className="ob-toolbar"><div><span className="ob-eyebrow">SMALL MODEL · SHADOW MODE</span><h1>{currentPanel.title}</h1><p>{currentPanel.subtitle}</p></div><button className="ob-button" disabled={!!busy} onClick={refreshHealth} aria-label="Refresh observer connection">{busy === "health" ? <LoaderCircle className="ob-spin" size={16} /> : <RefreshCw size={16} />}<span>Refresh connection</span></button></div>
+      <div className="ob-toolbar"><WorkspaceHeading eyebrow="SMALL MODEL / SHADOW MODE" title={currentPanel.title} subtitle={currentPanel.subtitle} icon={<currentPanel.icon size={25} strokeWidth={1.6} />} /><button className="ob-button" disabled={!!busy} onClick={refreshHealth} aria-label="Refresh observer connection">{busy === "health" ? <LoaderCircle className="ob-spin" size={16} /> : <RefreshCw size={16} />}<span>Refresh connection</span></button></div>
       <div className="ob-viewport" ref={viewportRef}>
         {error && <div className="ob-notice ob-notice-error" role="alert">{error}{authRequired && <div><a href="/signin-with-chatgpt?return_to=/observer">Sign in with ChatGPT<ArrowRight size={12} /></a></div>}</div>}
         <div className="ob-view" id="observer-scan" role="tabpanel" aria-labelledby="observer-tab-scan" hidden={panel !== "scan"}>
           <div className="ob-scan-layout">
-            <section className="ob-card"><span className="ob-eyebrow">TEXT TO OBSERVE</span><h2>Try a request or your own text.</h2><div className="ob-examples" aria-label="Sample inputs">{examples.map((example) => <button key={example.id} aria-pressed={exampleId === example.id} disabled={!!busy} onClick={() => { setText(example.text); setExampleId(example.id); setObservation(null); }}>{example.label}</button>)}</div>
+            <section className="ob-card"><span className="ob-eyebrow">TEXT TO OBSERVE</span><h2>Try a request or your own text.</h2><div className="ob-examples" aria-label="Sample inputs">{examples.map((example) => <button key={example.id} data-signal={example.id} aria-pressed={exampleId === example.id} disabled={!!busy} onClick={() => { setText(example.text); setExampleId(example.id); setObservation(null); }}>{example.label}</button>)}</div>
               <div className="ob-controls"><label className="ob-field"><span>Observer model</span><select value={modelKey} disabled={!!busy} onChange={(event) => { setModelKey(event.target.value as ObserverModelKey); setObservation(null); }}>{models.map((model) => <option key={model.key} value={model.key}>{model.label}</option>)}</select></label><label className="ob-field"><span>Text source</span><select value={source} disabled={!!busy} onChange={(event) => { setSource(event.target.value as ObserverInputText["source"]); setObservation(null); }}><option value="customer_context">Customer context</option><option value="proposed_reply">Proposed reply</option></select></label></div>
               <label className="ob-field ob-text-field"><span>Input text</span><textarea value={text} maxLength={6000} disabled={!!busy} spellCheck={false} onChange={(event) => { setText(event.target.value); setExampleId(""); setObservation(null); }} /><small>{text.length.toLocaleString()} / 6,000 characters · submitted to the configured inference service</small></label>
               <div className="ob-actions"><button className="ob-button ob-button-primary" disabled={!canScan} onClick={scan}>{busy === "scan" ? <LoaderCircle size={15} className="ob-spin" /> : <Eye size={15} />}{busy === "scan" ? "Observing…" : "Run observation"}<ArrowRight size={14} /></button>{!config?.available && <button className="ob-button" onClick={() => setPanel("setup")}>Connection setup<Server size={14} /></button>}</div>

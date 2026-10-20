@@ -32,7 +32,7 @@ console.log(`Starting ${key} on loopback port 8091. Local bearer credentials sta
 console.log("Restart the local app after changing the selected model. Hosted inference needs its own HTTPS service configuration.");
 const child = spawn(python, ["-m", "observer_service"], {
   cwd: directory, stdio: "inherit", windowsHide: true,
-  env: { ...process.env, ...env, OBSERVER_SERVICE_TOKEN: token, OBSERVER_MODEL_KEY: key, OBSERVER_DEVICE: process.env.OBSERVER_DEVICE ?? "cpu", OBSERVER_PRECISION: process.env.OBSERVER_PRECISION ?? "bfloat16", OBSERVER_CPU_THREADS: "2", HF_HOME: path.join(directory, ".models"), HF_HUB_DISABLE_XET: "1", HF_HUB_DISABLE_TELEMETRY: "1", HF_HUB_DISABLE_PROGRESS_BARS: "1", PYTHONUNBUFFERED: "1" },
+  env: { ...process.env, ...env, OBSERVER_SERVICE_TOKEN: token, OBSERVER_MODEL_KEY: key, OBSERVER_DEVICE: process.env.OBSERVER_DEVICE ?? "cpu", OBSERVER_PRECISION: process.env.OBSERVER_PRECISION ?? "bfloat16", OBSERVER_CPU_THREADS: "2", OMP_NUM_THREADS: "2", MKL_NUM_THREADS: "2", OPENBLAS_NUM_THREADS: "2", TOKENIZERS_PARALLELISM: "false", HF_HOME: path.join(directory, ".models"), HF_HUB_DISABLE_XET: "1", HF_HUB_DISABLE_TELEMETRY: "1", HF_HUB_DISABLE_PROGRESS_BARS: "1", PYTHONUNBUFFERED: "1" },
 });
 child.on("error", () => { console.error("The observer process could not start. Check the isolated Python runtime."); process.exitCode = 1; });
 child.on("exit", (code) => { process.exitCode = code ?? 1; });

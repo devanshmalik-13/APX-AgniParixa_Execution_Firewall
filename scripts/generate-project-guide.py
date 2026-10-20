@@ -207,7 +207,7 @@ def main():
     story = [Spacer(1, 105), Paragraph('APX', styles['GuideTitle']), Spacer(1, 20), Paragraph('Project guide', styles['GuideSubtitle']), Paragraph('Transactional execution and recovery<br/>for AI support agents', styles['GuideSubtitle']), Spacer(1, 42)]
     story.append(Paragraph('Architecture, workflows, verified evidence and a learning roadmap', styles['GuideBody']))
     story.append(Paragraph('Prepared 11 October 2026<br/>Implementation baseline 004c934<br/>Local demo first', styles['GuideBody']))
-    story.extend([Spacer(1, 32), Paragraph('Includes the support workspace, external proposal gateway, pretrained observer, comparison workspace and historical attack laboratory. Live-provider verification and hosted observer publication are explicitly pending.', styles['GuideBody']), PageBreak(), Paragraph('Contents', styles['GuideChapter'])])
+    story.extend([Spacer(1, 32), Paragraph('Includes the support workspace, external proposal gateway, pretrained observer, comparison workspace and historical attack laboratory. Gemini live planning is verified locally; OpenAI inference and hosted observer publication remain unverified.', styles['GuideBody']), PageBreak(), Paragraph('Contents', styles['GuideChapter'])])
     toc = TableOfContents()
     toc.levelStyles = [styles['GuideTOC']]
     story.extend([toc, PageBreak()])

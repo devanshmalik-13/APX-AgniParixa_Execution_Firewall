@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./workspaces.css"; // Shared workspace theme.
 
 export const metadata: Metadata = {
   title: "APX — Safe execution for AI support agents",

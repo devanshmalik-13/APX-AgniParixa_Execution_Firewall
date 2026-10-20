@@ -3,18 +3,21 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createSupportStore, SupportStoreError } from "@/lib/support/store";
 import { createObserverClient } from "@/lib/observer/server";
+import { plannerConfig, PlannerProviderError } from "@/lib/support/provider-config";
+import { connectionFromRequest, openConnection } from "@/lib/support/model-connection";
+import { TinyFishError } from "@/lib/tinyfish/client";
 
 export const planRequestSchema = z.object({
   ticketId: z.string().min(1).max(100), mode: z.enum(["replay", "live"]),
   scenario: z.enum(["normal", "injection", "over-refund", "cross-tenant", "duplicate-refund"]),
-  profile: z.enum(["standard", "strict"]), note: z.string().max(2000).optional(),
+  profile: z.enum(["standard", "strict"]), note: z.string().max(2000).optional(), webEvidenceId: z.string().uuid().optional(),
 }).strict();
 export const operationSchema = z.object({
   operation: z.enum(["execute", "reject", "recover"]), receiptHash: z.string().regex(/^[a-f0-9]{64}$/),
   approve: z.boolean(),
 }).strict();
 
-export function supportContext(request: Request, mutation = false) {
+export function supportIdentity(request: Request, mutation = false) {
   const owner = request.headers.get("oai-authenticated-user-id");
   if (!owner || owner.length > 200 || /[\u0000-\u001f\u007f]/.test(owner)) throw new SupportStoreError(401, "An authenticated visitor is required.");
   if (mutation) {
@@ -22,11 +25,25 @@ export function supportContext(request: Request, mutation = false) {
     const expectedOrigin = new URL(request.url).origin;
     if (!origin || origin !== expectedOrigin || request.headers.get("sec-fetch-site") === "cross-site") throw new SupportStoreError(403, "Support mutations require a request from this site's origin.");
   }
+  return owner;
+}
+
+export function supportContext(request: Request, mutation = false) {
+  const owner = supportIdentity(request, mutation);
   if (!env.DB) throw new SupportStoreError(503, "The support database is unavailable.");
   const timeout = Number(env.OBSERVER_TIMEOUT_MS);
   const observer = createObserverClient({ url: env.OBSERVER_URL, token: env.OBSERVER_TOKEN, modelKey: env.OBSERVER_MODEL,
     allowLocal: env.OBSERVER_ALLOW_LOCAL === "true", timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : undefined });
-  return { owner, observer, store: createSupportStore(env.DB, { apiKey: env.OPENAI_API_KEY, model: env.OPENAI_MODEL || "gpt-5-mini", observer }) };
+  return { owner, observer, store: createSupportStore(env.DB, { ...plannerConfig(env), observer }) };
+}
+
+/** Only planning and its dashboard need the visitor's credential. Execution never does. */
+export async function connectedSupportContext(request: Request, mutation = false) {
+  const context = supportContext(request, mutation);
+  const sealed = connectionFromRequest(request);
+  if (!sealed) return context;
+  const connection = await openConnection(sealed, context.owner, env.MODEL_CONNECTION_SECRET);
+  return { ...context, store: createSupportStore(env.DB!, { ...connection.config, observer: context.observer }) };
 }
 
 /** Bound the stream itself, including chunked requests without Content-Length. */
@@ -59,8 +76,10 @@ export function supportResponse(data: unknown, status = 200) {
   return NextResponse.json(data, { status, headers: { "Cache-Control": "no-store, private", Vary: "oai-authenticated-user-id" } });
 }
 export function supportError(error: unknown) {
+  if (error instanceof TinyFishError) return supportResponse({ error: error.message }, error.status);
   if (error instanceof z.ZodError) return supportResponse({ error: "Invalid support request. Only documented fields are accepted.", issues: error.issues.map((issue) => ({ path: issue.path, message: issue.message })) }, 400);
   if (error instanceof SupportStoreError) return supportResponse({ error: error.message }, error.status);
+  if (error instanceof PlannerProviderError) return supportResponse({ error: error.message }, 503);
   // Provider bodies, database diagnostics and credentials never reach clients.
   return supportResponse({ error: "The support workflow is temporarily unavailable. Verify the database schema and server configuration." }, 503);
 }

@@ -6,7 +6,7 @@ export interface SecretMatch {
 }
 
 const detectors: Array<{ type: SecretMatch["type"]; pattern: RegExp }> = [
-  { type: "api_key", pattern: /\b(?:sk|api)[-_][a-z0-9_-]{16,}\b/gi },
+  { type: "api_key", pattern: /\b(?:(?:sk|api)[-_][a-z0-9_-]{16,}|AIza[A-Za-z0-9_-]{35}|AQ\.[A-Za-z0-9_-]{40,})\b/gi },
   { type: "bearer_token", pattern: /\bbearer\s+[a-z0-9._~+\/-]{20,}=*\b/gi },
   { type: "private_key", pattern: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g },
   { type: "credit_card", pattern: /\b(?:\d[ -]*?){13,19}\b/g },

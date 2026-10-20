@@ -1,22 +1,24 @@
 "use client";
+import { WorkspaceHeader, WorkspaceHeading } from "@/components/workspace-chrome";
+import { LabExecutionFlow } from "@/components/lab-execution-flow";
 
 import {
   Activity,
   Database,
-  FileWarning,
   LockKeyhole,
   Mail,
   Play,
-  Radar,
   ShieldCheck,
-  Sparkles,
   TimerReset,
   Zap,
   History,
   FlaskConical,
+  ChevronUp,
+  SlidersHorizontal,
+  BarChart3,
+  ArrowRight,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +37,14 @@ import { AuditExplorer } from "@/components/audit-explorer";
 import { isExactDemoFixture } from "@/lib/security/demo-fixture";
 import { constrainDemoIngress } from "@/lib/security/ingress";
 
+const labPanels = [
+  { id: "simulation", label: "Simulation", icon: Activity, title: "See the execution boundary", subtitle: "Follow one proposed action from untrusted input to the tool boundary." },
+  { id: "configure", label: "Configure", icon: SlidersHorizontal, title: "Set up an attack", subtitle: "Choose a scenario, protection mode, and editable prompt before running it." },
+  { id: "evidence", label: "Evidence", icon: ShieldCheck, title: "Understand the decision", subtitle: "Inspect policy findings and review actions that need an analyst." },
+  { id: "bench", label: "Bench", icon: BarChart3, title: "Measure the protection", subtitle: "Run the recorded test bench and compare containment with false positives." },
+  { id: "history", label: "History", icon: History, title: "Explore recorded runs", subtitle: "Search stored prompts, execution receipts, and analyst decisions." },
+] as const;
+type LabPanel = typeof labPanels[number]["id"];
 type Mode = "unprotected" | "observe" | "enforce";
 
 const scenarioTitles: Record<string, string> = {
@@ -56,12 +66,18 @@ type AuditData = {
 };
 
 export default function Home() {
+  const [panel, setPanel] = useState<LabPanel>("simulation");
+  const [dockPinned, setDockPinned] = useState(false);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const currentPanel = labPanels.find((item) => item.id === panel)!;
   const [mode, setMode] = useState<Mode>("enforce");
   const [scenarioId, setScenarioId] = useState(attackScenarios[0].id);
   const [attackLevel, setAttackLevel] = useState<AttackLevel>("easy");
   const [actorId, setActorId] = useState<string>(actorForScenario(attackScenarios[0].id).id);
   const [auditRefreshKey, setAuditRefreshKey] = useState(0);
   const [running, setRunning] = useState(false);
+  const [attackRun, setAttackRun] = useState(0);
   const [reviewing, setReviewing] = useState(false);
   const [analystDecision, setAnalystDecision] = useState<AnalystDecision>("pending");
   const [gatewayResponse, setGatewayResponse] = useState<GatewayResponse | null>(null);
@@ -71,7 +87,6 @@ export default function Home() {
   const [auditData, setAuditData] = useState<AuditData | null>(null);
   const [suiteRunning, setSuiteRunning] = useState(false);
   const [suiteError, setSuiteError] = useState("");
-  const incidentPanelRef = useRef<HTMLElement>(null);
   const scenario = attackScenarios.find((item) => item.id === scenarioId) ?? attackScenarios[0];
   const proposedAction = useMemo(() => proposeAction(scenarioId, attackLevel, promptText), [scenarioId, attackLevel, promptText]);
   const stockReplay = useMemo(() => isExactDemoFixture(scenarioId, attackLevel, promptText, proposedAction), [scenarioId, attackLevel, promptText, proposedAction]);
@@ -96,9 +111,6 @@ export default function Home() {
     tone: finding.severity === "critical" ? "red" : "amber",
   }));
   const isUnknown = !isCustomAction && scenario.id === "unknown-behavior";
-  const isToolEscalation = !isCustomAction && scenario.id === "tool-escalation";
-  const isGoalHijack = !isCustomAction && scenario.id === "goal-hijack";
-  const noveltyFinding = evaluation.findings.find((finding) => finding.id === "novel-behavior");
   const requiresReview = evaluation.decision === "approval_required";
   const responseCopy = effectiveMode === "unprotected"
     ? "Policy findings are recorded, but this fixed demo action is simulated as reaching the tool. No real system is touched."
@@ -136,8 +148,8 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    incidentPanelRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  }, [scenarioId, mode]);
+    viewportRef.current?.scrollTo({ top: 0 });
+  }, [panel]);
 
   function clearResult() {
     setAnalystDecision("pending");
@@ -161,6 +173,7 @@ export default function Home() {
   }
 
   async function submitToGateway(action = proposedAction) {
+    setAttackRun((current) => current + 1);
     setRunning(true);
     clearResult();
     try {
@@ -229,112 +242,34 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#07090b] text-[#eff3ef]">
-      <header className="flex h-[72px] items-center justify-between border-b border-white/[0.08] px-5 md:px-8">
-        <div className="flex items-center gap-3">
-          <div className="grid size-9 place-items-center rounded-xl border border-[#c8f560]/25 bg-[#c8f560]/[0.08]">
-            <ShieldCheck className="size-[18px] text-[#c8f560]" />
-          </div>
-          <div>
-            <div className="text-[15px] font-semibold tracking-[-0.01em]">APX</div>
-            <div className="text-[11px] text-white/40">AgniParixa Execution Firewall</div>
-          </div>
+    <main className="apx-lab min-h-screen overflow-x-hidden bg-[#07090b] text-[#eff3ef]">
+      <WorkspaceHeader active="lab" />
+      <div className="lab-shell">
+        <div className="lab-toolbar">
+          <WorkspaceHeading eyebrow="ATTACK LAB / SYNTHETIC SANDBOX" title={currentPanel.title} subtitle={currentPanel.subtitle} icon={<currentPanel.icon size={25} />} headingRef={headingRef} />
+          {(panel === "simulation" || panel === "configure") && <button className="lab-button lab-button-primary" disabled={running || reviewing} onClick={() => { setPanel("simulation"); void submitToGateway(); }}><Play size={15} fill="currentColor" />{running ? "Running…" : "Run attack"}</button>}
         </div>
-
-        <div className="hidden items-center gap-3 md:flex">
-          <div className="hidden items-center gap-2 rounded-full border border-[#c8f560]/15 bg-[#c8f560]/[0.045] px-3 py-2 text-[11px] text-white/55 xl:flex">
-            <Zap className="size-3.5 text-[#c8f560]" />
-            <span><b className="font-semibold text-white/80">{auditData?.metrics.attacks ? `${auditData.metrics.contained}/${auditData.metrics.attacks}` : "—"}</b> attacks contained</span>
-            <span className="text-white/20">·</span>
-            <span><b className="font-semibold text-[#f4b860]">{auditData?.metrics.legitimate ? auditData.metrics.falsePositives : "—"}</b> measured false positives</span>
-          </div>
-          <div className="flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.035] p-1">
-          {(["unprotected", "observe", "enforce"] as Mode[]).map((item) => (
-            <button
-              key={item}
-              disabled={running || reviewing} onClick={() => selectMode(item)}
-              className={`rounded-full px-4 py-2 text-xs font-medium capitalize transition-all ${mode === item ? "bg-white/[0.11] text-white shadow-sm" : "text-white/40 hover:text-white/70"}`}
-            >
-              {item}
-            </button>
-          ))}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-        <Link href="/support" className="text-xs text-[#c8f560] transition hover:text-[#d9ff77]">Support workspace →</Link>
-        <div className="flex items-center gap-2 rounded-full border border-white/[0.1] bg-white/[0.045] px-3 py-2 text-xs text-white/65">
-          <span className="size-1.5 rounded-full bg-[#c8f560] shadow-[0_0_8px_#c8f560]" />
-          Demo sandbox
-        </div>
-        </div>
-      </header>
-
-      <section className="mx-auto grid w-full max-w-[1600px] grid-cols-1 gap-4 p-4 lg:min-h-[calc(100vh-72px)] lg:grid-cols-[minmax(0,1fr)_360px] lg:p-5">
-        <div className="relative flex min-h-[780px] flex-col overflow-hidden rounded-[26px] border border-white/[0.08] bg-[#0b0e11]">
+        {gatewayError && <div role="alert" className="lab-error">{gatewayError}</div>}
+        <div className="lab-viewport" ref={viewportRef}>
+          <section className="lab-view" id="lab-simulation" role="tabpanel" aria-labelledby="lab-tab-simulation" hidden={panel !== "simulation"}>
+        <div className="lab-canvas relative flex flex-col overflow-hidden rounded-[26px] border border-white/[0.08] bg-[#0b0e11]">
           <div className="mesh-bg absolute inset-0 opacity-70" />
-          <div className="relative z-20 shrink-0 px-5 pt-5 md:px-7 md:pt-7">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-              <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">
-                <Activity className="size-3.5" /> {gatewayResponse ? "Recorded execution trace" : "Execution preview"}
-              </div>
-              <h1 className="max-w-xl text-[clamp(1.65rem,3vw,2.7rem)] font-medium leading-[1.05] tracking-[-0.045em]">Every AI action<br />must pass through AgniParixa.</h1>
-              </div>
-            <button
-              onClick={() => submitToGateway()}
-              disabled={running || reviewing}
-              className="group flex shrink-0 items-center gap-2 self-start rounded-full bg-[#c8f560] px-4 py-2.5 text-xs font-semibold text-[#11150c] transition hover:bg-[#d9ff77] disabled:opacity-65 md:px-5 md:py-3"
-            >
-              <Play className={`size-3.5 fill-current ${running ? "animate-pulse" : ""}`} />
-              {running ? "Running…" : "Run attack"}
-            </button>
-            </div>
-            <div className="soc-scrollbar mt-5 flex max-w-full gap-2 overflow-x-auto whitespace-nowrap pb-3">
-              {attackScenarios.map((item, index) => (
-                <button
-                  key={item.id}
-                  disabled={running || reviewing} onClick={() => selectScenario(item.id)}
-                  className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] transition ${scenarioId === item.id ? "border-[#c8f560]/35 bg-[#c8f560]/10 text-[#d9ff77]" : "border-white/[0.08] bg-black/20 text-white/38 hover:text-white/65"}`}
-                >
-                  0{index + 1} · {item.name}
-                </button>
-              ))}
-            </div>
+          <div className="lab-canvas-heading">
+            <div><span className="workspace-kicker">{gatewayResponse ? "RECORDED GATEWAY OUTCOME" : "LOCAL POLICY PREVIEW"}</span><h2>{scenario.name}</h2><p>{effectiveMode} mode · {attackLevel} level · {demoActors.find((actor) => actor.id === actorId)?.name}</p></div>
+            <button className="lab-button" onClick={() => setPanel("configure")}><SlidersHorizontal size={15} /> Configure</button>
           </div>
-
-          <div className="relative min-h-[540px] flex-1">
-            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1000 560" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-              <defs>
-                <linearGradient id="route" x1="0" x2="1">
-                  <stop offset="0" stopColor="#98a7a1" stopOpacity="0.12" />
-                  <stop offset="0.55" stopColor="#c8f560" stopOpacity="0.6" />
-                  <stop offset="1" stopColor="#ff6b4a" stopOpacity="0.35" />
-                </linearGradient>
-              </defs>
-              <path d="M135 280 C250 280 265 145 385 145 S555 280 635 280 S760 390 865 390" fill="none" stroke="url(#route)" strokeWidth="2" strokeDasharray="5 8" />
-              <path d="M385 145 C485 145 515 75 635 75" fill="none" stroke="#fff" strokeOpacity="0.09" strokeWidth="1.5" />
-              <path d="M635 280 C705 280 760 205 865 205" fill="none" stroke="#fff" strokeOpacity="0.09" strokeWidth="1.5" />
-              {running && (
-                <circle r="5" fill="#c8f560" className="route-dot">
-                  <animateMotion dur="2.1s" fill="freeze" path="M135 280 C250 280 265 145 385 145 S555 280 635 280 S760 390 865 390" />
-                </circle>
-              )}
-            </svg>
-
-            <TraceNode icon={isUnknown ? <Radar /> : isToolEscalation ? <LockKeyhole /> : <FileWarning />} label={isCustomAction ? "Custom prompt" : isUnknown ? "Agent session" : isGoalHijack ? "User request" : isToolEscalation ? "Injected request" : scenarioId === "memory-poisoning" ? "Poisoned invoice" : scenarioId === "loop-exhaustion" ? "Tool response" : "Support ticket"} meta={isCustomAction ? displayedAction.requestedBy.some((source) => source.trust === "untrusted") ? "Untrusted source" : "User input" : isUnknown ? "No signature match" : isGoalHijack ? "Outside assigned goal" : "Untrusted source"} className="left-[12%] top-[37%]" state="warning" />
-            <TraceNode icon={<Sparkles />} label="Nova agent" meta="Task: summarize ticket" className="left-[31%] top-[13%]" state="active" />
-            <TraceNode icon={isToolEscalation ? <LockKeyhole /> : <Database />} label={isCustomAction ? displayedAction.tool.replaceAll("_", " ") : isUnknown ? "Context bundler" : isGoalHijack ? "Goal boundary" : isToolEscalation ? "Shell tool" : scenarioId === "memory-poisoning" ? "Agent memory" : scenarioId === "loop-exhaustion" ? "Iteration 9" : "Customer DB"} meta={isCustomAction ? displayedAction.operation : isUnknown ? "Unseen tool sequence" : isGoalHijack ? "6% task relevance" : isToolEscalation ? "Not in capability set" : scenarioId === "loop-exhaustion" ? "Budget exceeded" : "Protected resource"} className="left-[57%] top-[37%]" state="warning" />
-            <TraceNode icon={<Mail />} label={isCustomAction ? "Tool boundary" : isUnknown ? "Approval gate" : isGoalHijack ? "Policy gateway" : isToolEscalation ? "Execution boundary" : scenarioId === "memory-poisoning" ? "Trust policy" : scenarioId === "loop-exhaustion" ? "Next tool call" : "External email"} meta={analystDecision === "contained" ? "Contained by analyst" : analystDecision === "safe" ? "Approved once" : requiresReview ? "Awaiting analyst" : evaluation.decision === "block" ? "Auto-contained" : "Action continued"} className="left-[79%] top-[62%]" state={evaluation.decision === "block" || analystDecision === "contained" ? "blocked" : analystDecision === "safe" ? "active" : "warning"} />
-
-            <div className="absolute right-[4%] top-[7%] hidden w-[206px] rounded-2xl border border-white/[0.08] bg-[#101418]/90 p-4 shadow-2xl backdrop-blur-xl md:block">
-              <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30">{isUnknown ? "Behavior drift" : isToolEscalation ? "Capability check" : "Task boundary"}</div>
-              <div className="text-sm font-medium">{isUnknown ? `${String(noveltyFinding?.evidence.noveltyScore ?? 0)}/100 novelty` : isToolEscalation ? "Tool not granted" : `${Math.round(displayedAction.taskRelevance * 100)}% relevance`}</div>
-              <p className="mt-1 text-xs leading-relaxed text-white/42">{isCustomAction ? `Evaluating ${displayedAction.tool}.${displayedAction.operation} for the current prompt.` : scenario.summary}</p>
-              {isUnknown && <div className="mt-3 border-t border-white/[0.07] pt-2 font-mono text-[9px] uppercase tracking-wider text-[#f4b860]">Known signature: none</div>}
-            </div>
-
-            <div className={`absolute bottom-5 left-5 right-5 flex items-center justify-between rounded-2xl border p-4 backdrop-blur-xl transition-colors md:bottom-7 md:left-7 md:right-7 ${evaluation.decision === "block" ? "border-[#ff6b4a]/25 bg-[#ff6b4a]/[0.07]" : evaluation.decision === "approval_required" ? "border-[#f4b860]/25 bg-[#f4b860]/[0.06]" : "border-white/[0.08] bg-white/[0.04]"}`}>
+          <LabExecutionFlow
+            decision={evaluation.decision}
+            phase={running ? "running" : gatewayResponse ? "recorded" : "preview"}
+            executed={gatewayResponse?.execution.executed}
+            analystDecision={analystDecision}
+            inputLabel={isCustomAction ? "Custom prompt" : scenarioId === "memory-poisoning" ? "Poisoned invoice" : scenarioId === "loop-exhaustion" ? "Tool response" : "Support ticket"}
+            toolLabel={displayedAction.tool === "send_email" ? "Email connector" : displayedAction.tool.includes("memory") ? "Agent memory" : displayedAction.tool === "database" ? "Customer DB" : displayedAction.tool.replaceAll("_", " ")}
+            toolIcon={displayedAction.tool === "send_email" ? <Mail /> : displayedAction.tool.includes("shell") ? <LockKeyhole /> : <Database />}
+            toolTone={displayedAction.tool === "send_email" ? "coral" : "amber"}
+            traceKey={String(attackRun)}
+          />
+            <div className={`lab-flow-result relative flex items-center justify-between rounded-2xl border p-4 backdrop-blur-xl transition-colors ${evaluation.decision === "block" ? "border-[#ff6b4a]/25 bg-[#ff6b4a]/[0.07]" : evaluation.decision === "approval_required" ? "border-[#f4b860]/25 bg-[#f4b860]/[0.06]" : "border-white/[0.08] bg-white/[0.04]"}`}>
               <div className="flex items-center gap-3">
                 <div className={`grid size-9 place-items-center rounded-xl ${evaluation.decision === "block" ? "bg-[#ff6b4a]/15 text-[#ff8064]" : evaluation.decision === "approval_required" ? "bg-[#f4b860]/15 text-[#f4b860]" : "bg-white/[0.06] text-white/65"}`}>
                   <ShieldCheck className="size-[18px]" />
@@ -344,28 +279,24 @@ export default function Home() {
                   <div className="text-xs text-white/40">{decision.copy}</div>
                 </div>
               </div>
-              <div className="hidden gap-2 sm:flex">
-                {evaluation.findings.slice(0, 3).map((finding) => (
-                  <span key={finding.id} className="rounded-full border border-white/[0.08] bg-black/20 px-3 py-1.5 text-[11px] text-white/48">{finding.id.replaceAll("-", " ")}</span>
-                ))}
-              </div>
+              <button className="lab-button" onClick={() => setPanel("evidence")}>Evidence <ArrowRight size={14} /></button>
             </div>
-          </div>
         </div>
-
-        <aside ref={incidentPanelRef} className="soc-scrollbar flex min-h-[640px] flex-col overflow-x-hidden overflow-y-auto rounded-[26px] border border-white/[0.08] bg-[#0b0e11] p-5 lg:max-h-[calc(100vh-112px)]">
-          <div className="mb-5 flex items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.035] p-1 md:hidden">
-            {(["unprotected", "observe", "enforce"] as Mode[]).map((item) => <button key={item} disabled={running || reviewing} onClick={() => selectMode(item)} className={`flex-1 rounded-full px-2 py-2 text-[11px] font-medium capitalize ${mode === item ? "bg-white/[0.11] text-white" : "text-white/40"}`}>{item}</button>)}
+          </section>
+          <section className="lab-view lab-two" id="lab-configure" role="tabpanel" aria-labelledby="lab-tab-configure" hidden={panel !== "configure"}>
+            <div className="lab-card"><span className="workspace-kicker">01 / SCENARIO</span><h2>Choose the boundary to test</h2><div className="lab-scenarios" aria-label="Attack scenarios">{attackScenarios.map((item, index) => <button key={item.id} disabled={running || reviewing} aria-pressed={scenarioId === item.id} onClick={() => selectScenario(item.id)}><span>0{index + 1}</span><b>{item.name}</b></button>)}</div><span className="workspace-kicker lab-mode-label">02 / PROTECTION MODE</span>          <div className="lab-mode-switch flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.035] p-1">
+          {(["unprotected", "observe", "enforce"] as Mode[]).map((item) => (
+            <button
+              key={item}
+              aria-pressed={mode === item}
+              disabled={running || reviewing} onClick={() => selectMode(item)}
+              className={`rounded-full px-4 py-2 text-xs font-medium capitalize transition-all ${mode === item ? "bg-white/[0.11] text-white shadow-sm" : "text-white/40 hover:text-white/70"}`}
+            >
+              {item}
+            </button>
+          ))}
           </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/30">Incident</div>
-              <h2 className="mt-1 text-xl font-medium tracking-[-0.025em]">{isCustomAction ? "Custom prompt evaluation" : scenarioTitles[scenario.id]}</h2>
-            </div>
-            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${isUnknown ? "border-[#f4b860]/20 bg-[#f4b860]/10 text-[#f4b860]" : "border-[#ff6b4a]/20 bg-[#ff6b4a]/10 text-[#ff8064]"}`}>{isCustomAction ? decision.label : isUnknown ? "Novel" : "Critical"}</span>
-          </div>
-
-          <div className="mt-6 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
+<p className="lab-help">Unprotected and Observe simulate tool reach for unchanged synthetic fixtures. Edited inputs are always enforced.</p>          <div className="mt-6 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
             <div className="mb-3 flex items-center justify-between text-xs">
               <span className="text-white/38">Assigned task</span>
               <span className="rounded-md bg-white/[0.06] px-2 py-1 text-[10px] text-white/45">TASK-0042</span>
@@ -373,7 +304,8 @@ export default function Home() {
             <p className="text-sm leading-relaxed text-white/78">Summarize the customer&apos;s billing issue and draft an internal response.</p>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
+</div>
+            <div className="lab-card"><span className="workspace-kicker">03 / INPUT</span><h2>Shape the proposed action</h2>          <div className="mt-4 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
             <div className="mb-3 flex items-center justify-between gap-2"><span className="text-[11px] font-medium text-white/60">Attack level</span><span className="text-[10px] text-white/30">Subtlety, not guaranteed success</span></div>
             <div className="grid grid-cols-4 gap-1 rounded-xl border border-white/[0.07] bg-black/20 p-1">{attackLevels.map((level) => <button key={level} disabled={running || reviewing} onClick={() => { setAttackLevel(level); setPromptText(promptForLevel(scenarioId, level)); clearResult(); }} className={`rounded-lg px-1 py-2 text-[10px] font-medium capitalize transition ${attackLevel === level ? "bg-[#c8f560]/15 text-[#d9ff77]" : "text-white/35 hover:text-white/70"}`}>{level}</button>)}</div>
             <div className="mt-3 flex items-center justify-between gap-3"><label htmlFor="demo-actor" className="text-[11px] text-white/60">Attack as synthetic user</label><select disabled={running || reviewing} id="demo-actor" value={actorId} onChange={(event) => { setActorId(event.target.value); clearResult(); }} className="rounded-lg border border-white/[0.08] bg-[#151a1d] px-2 py-1.5 text-[11px] text-white/70">{demoActors.map((actor) => <option key={actor.id} value={actor.id}>{actor.name}</option>)}</select></div>
@@ -390,14 +322,49 @@ export default function Home() {
             <div className="mt-3 rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2 font-mono text-[10px] text-white/45">Proposal → {displayedAction.tool}.{displayedAction.operation} · {displayedAction.destination ?? String(displayedAction.arguments.path ?? displayedAction.arguments.tenantId ?? "scoped")}</div>
           </div>
 
-            <div className="mt-4 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">Attack flow</div><div className="mt-3 space-y-2 text-[11px]">{[["01", "Untrusted input", "Editable prompt enters sandbox"], ["02", "Mock agent proposal", `${displayedAction.tool}.${displayedAction.operation}`], ["03", "Policy gateway", `${evaluation.findings.length} findings · ${evaluation.decision}`], ["04", "Tool boundary", gatewayResponse ? gatewayResponse.execution.executed ? effectiveMode === "unprotected" || effectiveMode === "observe" ? "Synthetic tool reach simulated" : "Mock action executed" : "Action held" : "Awaiting run"], ["05", "SOC audit", gatewayResponse ? "Receipt stored for analyst" : "Prompt and receipt on run"]].map(([number, title, subtitle]) => <div key={number} className="flex gap-3"><span className="font-mono text-[#c8f560]/60">{number}</span><span><b className="block font-medium text-white/70">{title}</b><span className="text-[10px] text-white/35">{subtitle}</span></span></div>)}</div></div>
+            <Dialog onOpenChange={(open) => { if (open) setPayloadText(JSON.stringify(displayedAction, null, 2)); }}>
+              <DialogTrigger asChild>
+                <button disabled={running || reviewing} className="mt-5 w-full rounded-xl border border-white/[0.09] bg-white/[0.04] py-3 text-xs font-medium text-white/72 transition hover:bg-white/[0.07]">Open live action inspector</button>
+              </DialogTrigger>
+              <DialogContent className="max-h-[82vh] overflow-auto border-white/[0.1] bg-[#0d1114] text-white sm:max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Live action inspector · {displayedAction.id}</DialogTitle>
+                  <DialogDescription>Edit the proposed tool call, then submit it to the real server-side gateway.</DialogDescription>
+                </DialogHeader>
+                {gatewayError && <p role="alert" className="rounded-lg bg-[#ff6b4a]/10 p-3 text-xs text-[#ff8064]">{gatewayError}</p>}
+                <textarea disabled={running || reviewing} aria-label="Action JSON" value={payloadText} onChange={(event) => setPayloadText(event.target.value)} spellCheck={false} className="min-h-64 w-full resize-y rounded-xl border border-white/[0.08] bg-black/30 p-4 font-mono text-[11px] leading-relaxed text-white/65 outline-none focus:border-[#c8f560]/30" />
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-[10px] text-white/35">Try changing a path, tenantId, table, destination, or data lineage.</span>
+                  <button onClick={runCustomPayload} disabled={running || reviewing} className="shrink-0 rounded-xl bg-[#c8f560] px-4 py-2.5 text-xs font-semibold text-[#11150c] disabled:opacity-50">Evaluate payload</button>
+                </div>
+                {gatewayResponse && (
+                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-4">
+                    <div className="flex items-center justify-between text-xs"><b className="uppercase tracking-wider text-[#c8f560]">Policy receipt</b><span className="font-mono text-white/40">{gatewayResponse.receipt.id}</span></div>
+                    <div className="mt-3 grid grid-cols-3 gap-3 text-[10px] text-white/45"><span><b className="block text-white/80">{gatewayResponse.evaluation.decision}</b>decision</span><span><b className="block text-white/80">{gatewayResponse.evaluation.riskScore}/100</b>risk</span><span><b className="block text-white/80">{String(gatewayResponse.execution.executed)}</b>executed</span></div>
+                    <div className="mt-3 truncate border-t border-white/[0.07] pt-3 font-mono text-[9px] text-white/30">sha256 {gatewayResponse.receipt.hash}</div>
+                    <div className="mt-3 border-t border-white/[0.07] pt-3 text-[10px] uppercase tracking-wider text-white/40">Policy findings</div>
+                    <div className="mt-2 space-y-2">{gatewayResponse.evaluation.findings.length ? gatewayResponse.evaluation.findings.map((finding) => <div key={finding.id} className="rounded-lg border border-white/[0.06] bg-black/20 p-2.5 text-xs"><b className="text-white/75">{finding.title}</b><p className="mt-1 text-white/45">{finding.description}</p></div>) : <p className="text-xs text-[#c8f560]">No policy findings.</p>}</div>
+                    <div className="mt-3 border-t border-white/[0.07] pt-3 text-[10px] uppercase tracking-wider text-white/40">Mock tool result</div>
+                    <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-black/25 p-3 text-[10px] leading-relaxed text-white/55">{JSON.stringify(gatewayResponse.execution.output ?? { status: gatewayResponse.execution.safeAlternative ?? "Held before execution" }, null, 2)}</pre>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog></div>
+          </section>
+          <section className="lab-view lab-two" id="lab-evidence" role="tabpanel" aria-labelledby="lab-tab-evidence" hidden={panel !== "evidence"}>
+            <div className="lab-card">          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/30">Incident</div>
+              <h2 className="mt-1 text-xl font-medium tracking-[-0.025em]">{isCustomAction ? "Custom prompt evaluation" : scenarioTitles[scenario.id]}</h2>
+            </div>
+            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${isUnknown ? "border-[#f4b860]/20 bg-[#f4b860]/10 text-[#f4b860]" : "border-[#ff6b4a]/20 bg-[#ff6b4a]/10 text-[#ff8064]"}`}>{isCustomAction ? decision.label : isUnknown ? "Novel" : "Critical"}</span>
+          </div>
 
-          <div className="mt-7 flex items-center justify-between">
+<p className="lab-help">{gatewayResponse ? "Recorded gateway result for this submission." : "Policy preview only. Run the attack to store a receipt or enable analyst review."}</p>          <div className="mt-7 flex items-center justify-between">
             <h3 className="text-sm font-medium">Evidence trail</h3>
             <span className="text-[11px] text-white/30">{events.length} {events.length === 1 ? "event" : "events"} · {gatewayResponse?.latencyMs ?? "—"}ms</span>
           </div>
 
-          {gatewayError && <div className="mt-4 rounded-xl border border-[#ff6b4a]/20 bg-[#ff6b4a]/[0.06] p-3 text-xs text-[#ff8064]">{gatewayError}</div>}
 
           <div className="mt-5 rounded-2xl border border-[#9fb8ff]/15 bg-[#9fb8ff]/[0.035] p-4">
             <div className="flex items-center justify-between">
@@ -462,7 +429,19 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="mt-6 border-t border-white/[0.07] pt-5">
+</div>
+            <div className="lab-card"><span className="workspace-kicker">EXECUTION PATH</span><h2>How this action reached the gate</h2>            <div className="mt-4 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">Attack flow</div><div className="mt-3 space-y-2 text-[11px]">{[["01", "Untrusted input", "Editable prompt enters sandbox"], ["02", "Mock agent proposal", `${displayedAction.tool}.${displayedAction.operation}`], ["03", "Policy gateway", `${evaluation.findings.length} findings · ${evaluation.decision}`], ["04", "Tool boundary", gatewayResponse ? gatewayResponse.execution.executed ? effectiveMode === "unprotected" || effectiveMode === "observe" ? "Synthetic tool reach simulated" : "Mock action executed" : "Action held" : "Awaiting run"], ["05", "SOC audit", gatewayResponse ? "Receipt stored for analyst" : "Prompt and receipt on run"]].map(([number, title, subtitle]) => <div key={number} className="flex gap-3"><span className="font-mono text-[#c8f560]/60">{number}</span><span><b className="block font-medium text-white/70">{title}</b><span className="text-[10px] text-white/35">{subtitle}</span></span></div>)}</div></div>
+
+</div>
+          </section>
+          <section className="lab-view" id="lab-bench" role="tabpanel" aria-labelledby="lab-tab-bench" hidden={panel !== "bench"}>
+            <div className="lab-card lab-bench-card"><span className="workspace-kicker">RECORDED BENCHMARK</span><h2>Containment and false alarms</h2><p className="lab-help">Measured from stored sandbox runs. These are deterministic fixtures, not a claim about every real-world attack.</p>          <div className="lab-bench-summary items-center gap-2 rounded-full border border-[#c8f560]/15 bg-[#c8f560]/[0.045] px-3 py-2 text-[11px] text-white/55">
+            <Zap className="size-3.5 text-[#c8f560]" />
+            <span><b className="font-semibold text-white/80">{auditData?.metrics.attacks ? `${auditData.metrics.contained}/${auditData.metrics.attacks}` : "—"}</b> attacks contained</span>
+            <span className="text-white/20">·</span>
+            <span><b className="font-semibold text-[#f4b860]">{auditData?.metrics.legitimate ? auditData.metrics.falsePositives : "—"}</b> measured false positives</span>
+          </div>
+
             <div className="mb-3 flex items-center justify-between">
               <span className="text-xs text-white/38">Recorded test bench</span>
               <span className="text-xs font-medium text-[#c8f560]">{auditData?.metrics.attempts ?? 0} stored runs</span>
@@ -477,51 +456,17 @@ export default function Home() {
             </div>
             <button onClick={runSuite} disabled={suiteRunning} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#c8f560] px-4 py-3 text-xs font-semibold text-[#11150c] transition hover:bg-[#d9ff77] disabled:opacity-55"><FlaskConical className="size-4" />{suiteRunning ? `Running all ${evaluationCases.length} cases…` : `Run ${evaluationCases.length}-case attack bench`}</button>
             {suiteError && <p className="mt-2 text-[10px] text-[#ff8064]">{suiteError}</p>}
-            <AuditExplorer refreshKey={auditRefreshKey} />
-            <Dialog>
-              <DialogTrigger asChild><button className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.09] bg-white/[0.04] py-3 text-xs font-medium text-white/42 transition hover:bg-white/[0.07]"><History className="size-3.5" /> Recent raw list</button></DialogTrigger>
-              <DialogContent className="max-h-[82vh] overflow-auto border-white/[0.1] bg-[#0d1114] text-white sm:max-w-3xl">
-                <DialogHeader><DialogTitle>Prompt and execution log</DialogTitle><DialogDescription>Stored in the private sandbox database, including rejected prompt submissions. Recent 200 entries shown.</DialogDescription></DialogHeader>
-                <a href="/api/audit/export" download className="inline-flex self-start rounded-lg border border-white/[0.09] bg-white/[0.04] px-3 py-2 text-xs text-[#c8f560] hover:bg-white/[0.07]">Download full JSON log</a>
-                <div className="space-y-2">
-                  {auditData?.prompts.length ? auditData.prompts.map((prompt) => {
-                    const run = auditData.runs.find((item) => item.promptId === prompt.id);
-                    return <div key={prompt.id} className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-3"><div className="flex flex-wrap items-center gap-2 text-[10px] text-white/40"><span className="font-mono">{new Date(prompt.createdAt).toLocaleString()}</span><span className="rounded bg-white/[0.06] px-1.5 py-0.5">{prompt.source}</span><span>{prompt.groundTruth}</span><span className="ml-auto text-[#c8f560]">{run?.decision ?? prompt.status}</span></div><p className="mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-white/70">{prompt.prompt}</p>{prompt.error && <p className="mt-2 text-xs text-[#ff8064]">{prompt.error}</p>}{run && <div className="mt-2 font-mono text-[10px] text-white/35">{run.actionId} · risk {run.riskScore}/100 · tool {run.executed ? "executed" : "held"} · {run.receiptHash.slice(0, 16)}…</div>}</div>;
-                  }) : <p className="rounded-xl border border-white/[0.08] p-6 text-sm text-white/45">No prompts recorded yet. Run a scenario or the full attack bench.</p>}
-                </div>
-              </DialogContent>
-            </Dialog>
-            <Dialog onOpenChange={(open) => { if (open) setPayloadText(JSON.stringify(displayedAction, null, 2)); }}>
-              <DialogTrigger asChild>
-                <button disabled={running || reviewing} className="mt-5 w-full rounded-xl border border-white/[0.09] bg-white/[0.04] py-3 text-xs font-medium text-white/72 transition hover:bg-white/[0.07]">Open live action inspector</button>
-              </DialogTrigger>
-              <DialogContent className="max-h-[82vh] overflow-auto border-white/[0.1] bg-[#0d1114] text-white sm:max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Live action inspector · {displayedAction.id}</DialogTitle>
-                  <DialogDescription>Edit the proposed tool call, then submit it to the real server-side gateway.</DialogDescription>
-                </DialogHeader>
-                {gatewayError && <p role="alert" className="rounded-lg bg-[#ff6b4a]/10 p-3 text-xs text-[#ff8064]">{gatewayError}</p>}
-                <textarea disabled={running || reviewing} aria-label="Action JSON" value={payloadText} onChange={(event) => setPayloadText(event.target.value)} spellCheck={false} className="min-h-64 w-full resize-y rounded-xl border border-white/[0.08] bg-black/30 p-4 font-mono text-[11px] leading-relaxed text-white/65 outline-none focus:border-[#c8f560]/30" />
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-[10px] text-white/35">Try changing a path, tenantId, table, destination, or data lineage.</span>
-                  <button onClick={runCustomPayload} disabled={running || reviewing} className="shrink-0 rounded-xl bg-[#c8f560] px-4 py-2.5 text-xs font-semibold text-[#11150c] disabled:opacity-50">Evaluate payload</button>
-                </div>
-                {gatewayResponse && (
-                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-4">
-                    <div className="flex items-center justify-between text-xs"><b className="uppercase tracking-wider text-[#c8f560]">Policy receipt</b><span className="font-mono text-white/40">{gatewayResponse.receipt.id}</span></div>
-                    <div className="mt-3 grid grid-cols-3 gap-3 text-[10px] text-white/45"><span><b className="block text-white/80">{gatewayResponse.evaluation.decision}</b>decision</span><span><b className="block text-white/80">{gatewayResponse.evaluation.riskScore}/100</b>risk</span><span><b className="block text-white/80">{String(gatewayResponse.execution.executed)}</b>executed</span></div>
-                    <div className="mt-3 truncate border-t border-white/[0.07] pt-3 font-mono text-[9px] text-white/30">sha256 {gatewayResponse.receipt.hash}</div>
-                    <div className="mt-3 border-t border-white/[0.07] pt-3 text-[10px] uppercase tracking-wider text-white/40">Policy findings</div>
-                    <div className="mt-2 space-y-2">{gatewayResponse.evaluation.findings.length ? gatewayResponse.evaluation.findings.map((finding) => <div key={finding.id} className="rounded-lg border border-white/[0.06] bg-black/20 p-2.5 text-xs"><b className="text-white/75">{finding.title}</b><p className="mt-1 text-white/45">{finding.description}</p></div>) : <p className="text-xs text-[#c8f560]">No policy findings.</p>}</div>
-                    <div className="mt-3 border-t border-white/[0.07] pt-3 text-[10px] uppercase tracking-wider text-white/40">Mock tool result</div>
-                    <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-black/25 p-3 text-[10px] leading-relaxed text-white/55">{JSON.stringify(gatewayResponse.execution.output ?? { status: gatewayResponse.execution.safeAlternative ?? "Held before execution" }, null, 2)}</pre>
-                  </div>
-                )}
-              </DialogContent>
-            </Dialog>
-          </div>
-        </aside>
-      </section>
+</div>
+          </section>
+          <section className="lab-view" id="lab-history" role="tabpanel" aria-labelledby="lab-tab-history" hidden={panel !== "history"}>
+            <div className="lab-card lab-history-card"><AuditExplorer refreshKey={auditRefreshKey} active={panel === "history"} /></div>
+          </section>
+        </div>
+      </div>
+      <div className={`lab-dock-zone ${dockPinned ? "pinned" : ""}`}>
+        <button className="lab-dock-handle" aria-label="Keep attack lab navigation visible" aria-pressed={dockPinned} onClick={() => setDockPinned((value) => !value)}><ChevronUp size={13} />Panels</button>
+        <nav className="lab-dock" role="tablist" aria-label="Attack lab panels">{labPanels.map((item, index) => <button key={item.id} id={`lab-tab-${item.id}`} role="tab" aria-selected={panel === item.id} aria-controls={`lab-${item.id}`} tabIndex={panel === item.id ? 0 : -1} onClick={() => setPanel(item.id)} onKeyDown={(event) => { let next: number | undefined; if (event.key === "ArrowRight") next = (index + 1) % labPanels.length; else if (event.key === "ArrowLeft") next = (index - 1 + labPanels.length) % labPanels.length; else if (event.key === "Home") next = 0; else if (event.key === "End") next = labPanels.length - 1; if (next === undefined) return; event.preventDefault(); setPanel(labPanels[next].id); document.getElementById(`lab-tab-${labPanels[next].id}`)?.focus(); }}><item.icon size={21} strokeWidth={1.7} /><small>{item.label}</small></button>)}</nav>
+      </div>
     </main>
   );
 }
@@ -531,21 +476,6 @@ function Metric({ value, label, tone = "green" }: { value: string; label: string
     <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-2.5">
       <div className={`text-sm font-semibold ${tone === "amber" ? "text-[#f4b860]" : "text-[#c8f560]"}`}>{value}</div>
       <div className="mt-0.5 text-[9px] leading-tight text-white/32">{label}</div>
-    </div>
-  );
-}
-
-function TraceNode({ icon, label, meta, className, state }: { icon: React.ReactNode; label: string; meta: string; className: string; state: "active" | "warning" | "blocked" }) {
-  return (
-    <div className={`absolute -translate-x-1/2 -translate-y-1/2 ${className}`}>
-      <div className={`relative grid size-[68px] place-items-center rounded-[22px] border shadow-2xl backdrop-blur-xl md:size-[78px] ${state === "blocked" ? "border-[#ff6b4a]/40 bg-[#2a1210] text-[#ff8064]" : state === "active" ? "border-[#c8f560]/35 bg-[#15200d] text-[#c8f560]" : "border-[#f4b860]/25 bg-[#1c1811] text-[#f4b860]"}`}>
-        <span className="[&>svg]:size-5 md:[&>svg]:size-6">{icon}</span>
-        <span className={`absolute -right-1 -top-1 size-3 rounded-full border-2 border-[#0b0e11] ${state === "blocked" ? "bg-[#ff6b4a]" : state === "active" ? "bg-[#c8f560]" : "bg-[#f4b860]"}`} />
-      </div>
-      <div className="mt-3 whitespace-nowrap text-center">
-        <div className="text-xs font-medium text-white/78">{label}</div>
-        <div className="mt-0.5 text-[10px] text-white/30">{meta}</div>
-      </div>
     </div>
   );
 }

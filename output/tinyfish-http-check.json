@@ -1,0 +1,14 @@
+{
+  "checkedAt": "2026-10-20T17:16:48.354Z",
+  "passed": true,
+  "checks": [
+    "authenticated access required",
+    "configuration exposes no key",
+    "extra fields, unknown sources and cross-origin mutations refused",
+    "drafting accepts neither caller grants nor missing evidence",
+    "planner renders secure key field and retrieval control",
+    "reference is displayed as escaped text, never executable HTML",
+    "all five workspaces respond successfully"
+  ],
+  "browserVisualVerification": "Not performed; prior browser URL-policy restriction remains unresolved"
+}

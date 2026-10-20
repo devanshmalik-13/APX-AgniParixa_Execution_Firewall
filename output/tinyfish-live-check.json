@@ -1,0 +1,14 @@
+{
+  "checkedAt": "2026-10-20T17:04:50.492Z",
+  "provider": "tinyfish",
+  "api": "fetch",
+  "liveTinyFish": true,
+  "livePlanner": false,
+  "published": false,
+  "evidenceId": "8a9fd61e-907e-4236-aa7c-055f66473447",
+  "source": "https://docs.stripe.com/refunds",
+  "contentCharacters": 8000,
+  "contentSha256": "7286bd5b2ba33fce41ed441d8ab02a8408a0678129fb93e25585593c991dc90c",
+  "truncated": true,
+  "error": "Agent planning timed out. No action executed."
+}

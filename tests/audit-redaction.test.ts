@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { redactAuditText, redactAuditValue } from "../lib/security/audit-redaction";
+import { scanForSecrets } from "../lib/security/secret-scanner";
 
 test("structured credential fields are redacted even without recognizable token syntax", () => {
   const value = { arguments: { password: "synthetic-passphrase", nested: [{ apiKey: "short-demo-key", authorization: "custom-scheme-value" }] } };
@@ -25,4 +26,11 @@ test("audit redaction keeps non-secret attack evidence readable", () => {
 test("base64-wrapped credential labels are not retained", () => {
   const token = btoa("api_key=sk-demo_1234567890abcdef");
   assert.equal(redactAuditText(`encoded ${token}`), "encoded [REDACTED ENCODED SECRET]");
+});
+
+test("Google legacy and auth API key formats are recognized and redacted", () => {
+  for (const key of ["AIza" + "A".repeat(35), "AQ." + "B".repeat(48)]) {
+    assert.equal(redactAuditText(`Credential ${key}`), "Credential [REDACTED API KEY]");
+    assert.ok(scanForSecrets(`Credential ${key}`).some((match) => match.type === "api_key"));
+  }
 });

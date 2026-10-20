@@ -4,7 +4,7 @@
 
 APX is a working prototype for transactional execution and recovery of AI support-agent actions. It combines a support workspace, an independent proposal gateway, a security comparison workspace, a pretrained prompt-injection observer, and the earlier attack laboratory. This guide explains the implementation, its purpose, its workflows, and the knowledge needed to understand it.
 
-Prepared and checked on 11 October 2026. The application implementation baseline is commit 004c934, with subsequent documentation and test-runner improvements. Automated tests, the build, policy evaluations and HTTP integration checks were rerun on 11 October. A local readiness check also verified all five page routes and an actual short pretrained scan. The guide describes the local checkout; it does not imply that every local feature is deployed to the existing hosted site.
+Prepared and checked on 11 October 2026. The original application baseline is commit 004c934, followed by documentation, test-runner improvements and the Gemini planner integration. Automated tests, the build and support HTTP checks were rerun after the integration, and a real Gemini planning smoke check passed locally. Earlier artifacts record all five page routes and a short pretrained scan. This guide describes the local checkout; it does not imply that every local feature is deployed to the existing hosted site.
 
 | Component | Current status | What that means |
 | --- | --- | --- |
@@ -13,7 +13,8 @@ Prepared and checked on 11 October 2026. The application implementation baseline
 | Responsive panel interface | Implemented | Bottom navigation separates work into focused panels. Observer layout has recorded checks at four screen sizes. |
 | Public PIGuard observer | Real inference verified locally | CPU/bfloat16 results and failure behavior are recorded; evidence remains advisory. |
 | Meta Prompt Guard alternatives | Adapters available, not verified | Gated model access and separate inference measurements are still required. |
-| Live OpenAI planner | Implemented; live verification pending | Scripted tool-loop tests pass. No real provider request is established by the current live-check artifact. |
+| Live Gemini planner | Real planning verified locally | Gemini 3.5 Flash-Lite stages a receipt-bound plan; the smoke checker rejects it with connector state unchanged. |
+| Live OpenAI planner | Adapter implemented; real inference unverified | Existing scripted tests pass. Gemini verification does not establish an actual OpenAI run. |
 | Hosted observer release | Pending | Existing Sites lookup fails. A hosted Worker also needs a reachable HTTPS observer service. |
 | Real payments and email | Outside the prototype | Refunds are ledger entries; messages stay in a cancellable outbox. |
 
@@ -104,7 +105,7 @@ Trusted records are synthetic fixtures in this version. A production integration
 
 Replay planning creates deterministic proposals for normal work, injected export instructions, an excessive refund, a cross-tenant operation and a duplicate refund. It provides reproducible demonstrations without a paid provider. Replay is not an LLM and does not interpret arbitrary notes as a general language model would.
 
-Live planning is a bounded OpenAI Responses tool loop. The configured default is gpt-5-mini. The server supplies task instructions, synthetic customer context and tool definitions. The model can request a scoped invoice read and propose refunds, invoice changes or replies. The app validates every request and returns feedback; write tools stage proposals rather than performing their effects. OpenAI's function-calling guide explains the general model-request/app-execution pattern; APX deliberately uses proposal-only write functions [1].
+Live planning uses one bounded tool loop with provider-specific adapters for OpenAI Responses and Gemini Generate Content. PLANNER_PROVIDER selects the server-owned provider. Gemini defaults to gemini-3.5-flash-lite; the OpenAI adapter retains gpt-5-mini. The server supplies trusted instructions, synthetic ticket context and tool definitions. The model requests scoped reads and proposes changes. APX validates each request and returns feedback; write tools stage proposals rather than executing their effects. Function calling is the general model-request/application-feedback pattern [1].
 
 | Tool | Application behavior |
 | --- | --- |
@@ -114,11 +115,11 @@ Live planning is a bounded OpenAI Responses tool loop. The configured default is
 | propose_reply | Records a reply proposal for later authorization and review. |
 | export_customers | Explicitly denied for the support role. |
 
-The loop is limited to eight response rounds, twelve tool calls and eight actions, with a 45-second planning deadline and bounded output. Parallel tool calls are disabled. The provider request uses store=false. A database-backed owner cooldown reserves a live attempt before calling the provider, so a failed attempt does not remove the cost-control interval.
+The loop is limited to eight response rounds, twelve tool calls and eight actions, with a 45-second planning deadline, 2,048 output tokens per response and a 128 KB response-body limit. OpenAI parallel calls are disabled and store=false is sent. Gemini can return a group of function calls; APX handles them sequentially under the same policy and budgets. Native Gemini thought signatures are preserved in memory for subsequent turns and never stored in the audit. Provider redirects are rejected without forwarding credentials. A database-backed owner cooldown reserves each attempt for 75 seconds, including failed attempts.
 
 Unknown tools and malformed arguments receive denials. Within the remaining budget, a model can still follow a denied request with a legitimate proposal. Provider errors are surfaced safely; the app does not fabricate a successful live run by silently switching to replay.
 
-The implementation has scripted provider-loop tests. Actual live verification remains pending until a securely configured API key and usable provider quota are available. The current live-check report explicitly says not_run, which must not be presented as a successful model test.
+Gemini authentication and actual normal-ticket and injected-ticket runs were verified on 11 October. In both runs, the model read the authorized invoice and proposed a refund, invoice resolution and reply to the original requester. It did not propose an export or redirected reply in the injected run. The checker verified each immutable receipt and unchanged connector state, then rejected its plan. These two smoke checks do not establish a broad security benchmark. OpenAI inference remains unverified. Gemini free-tier quotas and Google's product-improvement terms still apply; the demo uses synthetic data.
 
 ## 7 Deterministic action authorization
 
@@ -288,7 +289,7 @@ The separate support-policy report covers 20 explicit cases and records zero uns
 
 ## 15 Test evidence, legacy laboratory and privacy
 
-The last complete implementation validation recorded 217 passing Node tests, 13 passing Python tests, a passing typecheck and a successful production build. Node tests cover authorization, forged receipts, randomized mixed batches, scripted provider behavior, transaction faults, concurrent retries, stale plans, owner isolation, expiry and recovery. Python tests exercise coverage, invalid scores, concurrency, authentication and checkpoint loading without treating mocks as real inference.
+The Gemini integration validation recorded 227 passing Node tests, a passing typecheck, a successful production build and eight passing support HTTP groups. The unchanged observer service previously passed 13 Python tests. Node tests cover authorization, forged receipts, mixed batches, both provider protocols, Gemini thought signatures, malformed responses, credential redaction, transaction faults, concurrency, isolation and recovery. Python tests exercise coverage, scores, concurrency, authentication and checkpoint loading without treating mocks as real inference.
 
 | Evidence artifact | What it demonstrates |
 | --- | --- |
@@ -296,10 +297,13 @@ The last complete implementation validation recorded 217 passing Node tests, 13 
 | output/observer-http-check.json | Six groups including real pretrained inference, strict validation, preserved approval boundaries and the long-input deadline. |
 | output/observer-evaluation.json | Actual pinned-model labels and local latency on twelve authored inputs. |
 | output/observer-ui-check.json | Sixteen panel/viewport combinations with recorded overflow measurements. |
-| output/support-live-check.json | Explicit not_run status until a real provider smoke test succeeds. |
+| output/support-live-check.json | Latest actual provider-backed planning smoke check, including receipt verification and rejected-plan cleanup. |
+| output/gemini-live-normal-check.json | Preserved successful normal-ticket Gemini run; no connector executed. |
+| output/gemini-live-injection-check.json | Preserved successful injected-ticket run; no connector executed. |
 | output/combination-evaluation.json | Transparent local control comparison, decision reasons and selection criteria. |
 | output/local-readiness-check.json | Fresh local route readiness and one actual short pretrained scan; no execution or provider call. |
-| output/verification-check.json | Combined 11 October check record, the test-runner fix and the explicit unverified live-provider status. |
+| output/verification-check.json | Earlier combined check record, including the then-unconfigured OpenAI status; retained as historical evidence. |
+| output/gemini-verification-check.json | Subsequent Gemini integration checks, actual planning evidence and limitations. |
 
 The older /lab workspace preserves eight attack scenarios, four difficulty framings, synthetic actors, editable action JSON and unprotected/observe/enforce comparisons. Its mock proposal generator is deterministic; arbitrary edited language is not generally interpreted by an LLM. Custom submitted actions are forced through enforcement, and caller trust claims are downgraded. Weak modes are counterfactual demonstrations, not permission to perform their simulated dangerous effects.
 
@@ -324,13 +328,15 @@ Start npm run dev in another terminal, then open http://localhost:5173. Keep the
 
 | Server setting | Purpose |
 | --- | --- |
-| OPENAI_API_KEY / OPENAI_MODEL | Secure live-provider credential and optional model selection. No browser access. |
+| PLANNER_PROVIDER | Explicit server-owned gemini or openai selection; never silently falls back. |
+| GEMINI_API_KEY / GEMINI_MODEL | Server-only Google credential and optional model; default gemini-3.5-flash-lite. |
+| OPENAI_API_KEY / OPENAI_MODEL | Optional OpenAI credential and model; default gpt-5-mini. No browser access. |
 | OBSERVER_URL / OBSERVER_TOKEN | Private inference endpoint and service credential. |
 | OBSERVER_MODEL | Allowlisted active model key. |
 | OBSERVER_TIMEOUT_MS | Bounded app deadline, from 500 to 15,000 ms. |
 | OBSERVER_ALLOW_LOCAL | Explicit loopback HTTP permission for local development only. |
 
-Configure provider credentials through the secure setup; never paste keys into chat, commit them or place them in client code. The APX key target was selected, but the local-save step was not approved, so that flow created no key. Replay and the local classifier do not require an OpenAI key.
+Configure server credentials in ignored .dev.vars for the local demo, and separately in hosted environment secrets if publishing. Never paste keys into chat, commit them or place them in client code. Replace any exposed key before public use. A Gemini key selects Gemini when PLANNER_PROVIDER is absent; otherwise the OpenAI default is retained. An explicit provider with a missing key leaves Live unavailable. Replay and the local classifier require neither provider key.
 
 The hosted Worker cannot reach this laptop's localhost service. Hosted inference requires a separate HTTPS service, sufficient memory, injected secrets and measured performance. The Dockerfile is a starting point, not a verified deployment. The chosen scope is a local demo first; no paid hosting is provisioned.
 
@@ -375,7 +381,7 @@ Use the Evaluation Gateway panel to stage an external $25 refund proposal. It sh
 
 In Observer, compare ordinary invoice text, a direct injection and a harmless quotation of suspicious instructions. Inspect score, complete coverage, device, precision and model revision. Use the recorded mixed-language miss and false alarm to explain why the classifier does not replace authorization. Long-input unknown demonstrates an operational limit.
 
-When live planning is securely enabled, show an actual tool trace and identify the model. Until then, label replay clearly and describe live mode as implemented but unverified against the provider.
+For a live demonstration, choose Live Gemini in the Planner and identify the model in the receipt. Show its scoped invoice read and staged actions, then inspect the policy and execute or reject deliberately. Use the preserved Gemini smoke artifacts as evidence; keep Replay labeled as deterministic. Do not imply the OpenAI adapter has also run against its provider.
 
 ## 19 Learning roadmap and source-code navigation
 
@@ -404,7 +410,7 @@ The three main workspace components are components/support-workspace.tsx, combin
 
 ## 20 Limitations, next steps and resume explanation
 
-The implementation is a substantial local prototype, with real durable sandbox transactions and real public-model inference. Its remaining integration work is explicit: live-provider verification, restored access to the existing hosted project if publication is desired, and a reachable HTTPS inference host for a hosted observer. The current user preference is a local demo first.
+The implementation is a substantial local prototype, with durable sandbox transactions, real public-model observer inference and verified Gemini planning. Publishing still requires restored access to the existing hosted project, its own provider secrets and a reachable HTTPS observer host. OpenAI real inference is optional and remains unverified. The current preference is a local demo first.
 
 Before autonomous filtering reduces human review, evaluate a larger, separately labeled dataset with multilingual attacks, benign quotations, long documents and domain-specific requests. Measure false blocks, missed attacks, coverage, memory, cold startup, busy responses and operator time. Compare each candidate model with its own pinned revision and precision. Do not tune on twelve development cases and then claim production accuracy.
 
@@ -414,7 +420,7 @@ Suggested resume title: **APX - transactional execution and recovery for AI supp
 
 Suggested bullet: "Built an AI support-agent execution layer with customer-scoped authorization, receipt-bound approvals, atomic SQLite/D1 transactions and compensating recovery; verified concurrency, fault rollback and mixed-attack containment with unit, randomized and HTTP integration checks."
 
-An observer bullet can say that a pinned pretrained injection classifier was integrated in shadow mode with strict evidence validation and recorded latency, misses and false alarms. Do not claim fewer human interventions, a better model than enterprise alternatives, real payment processing or completed live-provider validation without new evidence.
+An observer bullet can describe a pinned pretrained injection classifier integrated in shadow mode with strict evidence validation and recorded latency, misses and false alarms. A planner bullet can describe provider-independent proposal handling with verified Gemini planning and immutable receipts. Do not claim reduced human intervention, superiority to enterprise alternatives, real payments or a broad live-model security benchmark.
 
 In an interview, walk through one complete Maya execution and recovery. Then explain the stale-plan conflict, the difference between the receipt hash and a signature, why a blocked action cannot be approved, and why an observer outage does not weaken permissions. That gives a reviewer a clear account of what you personally understand and what the system actually does.
 
@@ -436,9 +442,17 @@ These primary sources explain background concepts. They are learning resources, 
 10. [Classification metrics](https://scikit-learn.org/stable/modules/model_evaluation.html) - interpreting classification mistakes and choosing suitable metrics.
 11. [Meta Prompt Guard 22M](https://huggingface.co/meta-llama/Llama-Prompt-Guard-2-22M) and [86M](https://huggingface.co/meta-llama/Llama-Prompt-Guard-2-86M) - candidate model documentation and access terms.
 12. [Cloudflare Worker limits](https://developers.cloudflare.com/workers/platform/limits/) - why model inference needs an appropriate separate host.
+13. [Gemini Generate Content API](https://ai.google.dev/api/generate-content), [thought signatures](https://ai.google.dev/gemini-api/docs/generate-content/thought-signatures) and [pricing](https://ai.google.dev/gemini-api/docs/pricing) - native tool declarations, conversation continuity and free-tier limits.
 
 Read the local README.md, SUPPORT_ENGINEERING.md, IMPLEMENTATION_DECISIONS.md, THREAT_MODEL.md, GUARD_MODEL_RESEARCH.md and services/observer/README.md for implementation context. Historical documents may describe earlier states; this guide and the timestamped JSON reports distinguish the current observer work from the deployed site's previous release.
 
 Key report files are output/support-evaluation.json, combination-evaluation.json, support-http-check.json, support-live-check.json, observer-evaluation.json, observer-http-check.json and observer-ui-check.json. Inspect their timestamps, scope, failure fields and limitations before quoting a result. Test counts refer to the recorded complete run, not an unlimited guarantee across future changes.
 
 The editable Markdown version of this guide is docs/APX_PROJECT_GUIDE.md. The accompanying PDF is generated from that source. No credential values, raw customer secrets or model weights belong in either document.
+
+
+## Interface consolidation and personal model connections (11 October 2026)
+
+The current local interface replaces the earlier separate Permissions and Trace panels: expand Task permissions in Planner and Tool trace and observer evidence in Review. External proposals have moved from Compare → Gateway into Workspace → Connect → Bring an existing agent, and staging opens the existing Review panel. Compare now contains three experiment panels. The support dock contains Inbox, Connect, Planner, Review, and Activity. Attack lab History uses one audit explorer plus a direct full-JSON download.
+
+Connect accepts supported Gemini, OpenAI, Groq, and OpenRouter credentials and model IDs. A synthetic function-call probe verifies the selected model, then an encrypted, owner-bound, HttpOnly cookie holds the personal connection for one hour. Live support planning resolves that connection on the server and continues through the original policy, staging, review, execution, and recovery workflow. Execution of an already-staged plan does not need the provider key. Credentials never expand permissions or remove review requirements. Only scoped sandbox connectors are integrated: API-key entry does not automatically protect other applications, tools, provider-held data, or model weights. See README → Connect your own model and the revised panel quick guide for current usage.

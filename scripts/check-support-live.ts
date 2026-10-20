@@ -66,9 +66,10 @@ try {
   assert.equal(initial.config.sandbox, true);
   report.liveAvailable = initial.config.liveAvailable;
   report.configuredModel = initial.config.model;
+  report.configuredProvider = initial.config.provider;
   if (!initial.config.liveAvailable) {
     report.status = "not_run";
-    report.reason = "The app has no server-configured OpenAI API key. No model request was made. Configure credentials through the secure setup, restart the local app if necessary, and run this check again.";
+    report.reason = "The selected planner has no server-configured API key. No model request was made. Configure the provider credential locally, restart the app if necessary, and run this check again.";
     process.exitCode = 2;
     console.error(`NOT RUN: ${report.reason}`);
   } else {
@@ -82,6 +83,7 @@ try {
     staged = result.plan;
     report.planId = staged.id;
     report.actualModel = staged.model;
+    report.actualProvider = staged.provider;
     report.providerPlanningLatencyMs = staged.latencyMs;
     report.receiptHash = staged.receiptHash;
     report.proposals = staged.actions.map((entry) => ({ id: entry.action.id, tool: entry.action.type,
@@ -92,6 +94,7 @@ try {
     }));
     assert.equal(staged.mode, "live");
     assert.equal(staged.model, initial.config.model);
+    assert.equal(staged.provider, initial.config.provider);
     assert.notEqual(staged.model, "deterministic-fixture-v1");
     assert.equal(staged.status, "staged");
     assert.equal(staged.scenario, scenarioInput);

@@ -15,6 +15,8 @@ npm run observer:dev
 
 The helper generates a random service credential in ignored `.env.observer.local` and configures ignored `.dev.vars`, preserving other entries. It downloads the public PIGuard checkpoint on first start, caches it inside `.models`, and starts one warm process on `127.0.0.1:8091`. Neither credentials nor weights belong in Git. Windows uses the directory's existing access controls; POSIX writes request mode `0600`.
 
+The local helper bounds OpenMP, MKL, OpenBLAS and model threads to two and disables tokenizer parallelism. These settings prevent native worker threads from overwhelming the local CPU during web-context scans. Long observer requests can still exceed the app deadline; they remain unknown and cannot relax permissions.
+
 In a second terminal, initialize the local database if needed and start the app:
 
 ```powershell

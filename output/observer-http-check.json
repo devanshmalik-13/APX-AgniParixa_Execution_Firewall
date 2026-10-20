@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-10T21:57:35.206Z",
+  "generatedAt": "2026-10-20T17:17:50.163Z",
   "passed": true,
   "checks": [
     {
@@ -28,9 +28,9 @@
     }
   ],
   "longInputMeasurement": {
-    "serviceLatencyMs": 13177.878,
-    "appStatus": "observed",
-    "appLatencyMs": 13315,
+    "serviceLatencyMs": 25777.646,
+    "appStatus": "unavailable",
+    "appLatencyMs": 15009,
     "tokens": 540,
     "segments": 2
   },

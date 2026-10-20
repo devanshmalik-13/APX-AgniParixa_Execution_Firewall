@@ -90,3 +90,18 @@ CREATE TABLE IF NOT EXISTS support_live_reservations (
   token TEXT NOT NULL,
   expires_at TEXT NOT NULL
 );
+
+-- Retrieved content is untrusted evidence, partitioned by visitor and ticket.
+CREATE TABLE IF NOT EXISTS support_web_evidence (
+  owner_id TEXT NOT NULL,
+  id TEXT NOT NULL,
+  ticket_id TEXT NOT NULL,
+  evidence_json TEXT NOT NULL,
+  PRIMARY KEY (owner_id, id),
+  FOREIGN KEY (owner_id, ticket_id) REFERENCES support_tickets(owner_id, id)
+);
+CREATE TABLE IF NOT EXISTS support_web_reservations (
+  owner_id TEXT PRIMARY KEY,
+  token TEXT NOT NULL,
+  expires_at INTEGER NOT NULL
+);
