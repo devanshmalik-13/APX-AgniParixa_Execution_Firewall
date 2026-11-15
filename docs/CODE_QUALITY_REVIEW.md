@@ -2,6 +2,8 @@
 
 This review covers the Gemini planner update on 15 November 2026. The public repository is [APX](https://github.com/devanshmalik-13/APX-AgniParixa_Execution_Firewall).
 
+The subsequent [full application test report](./FULL_APP_TEST_REPORT.md) covers browser execution/recovery, live Gemini, model connections, actual observer inference, audit exports and the observer checker's timing fix.
+
 ## Changes
 
 - Removed public-web retrieval routes, provider adapter, reference drafting, UI controls, credentials, schema setup and dedicated scripts. Planning uses assigned ticket data and optional untrusted customer context.

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-20T17:38:42.299Z",
+  "generatedAt": "2026-11-15T06:25:11.187Z",
   "status": "completed",
   "mode": "shadow",
   "model": {
@@ -21,8 +21,8 @@
   },
   "latency": {
     "metric": "warm sequential app-to-service round trip on this local machine",
-    "p50Ms": 1271,
-    "p95Ms": 1601
+    "p50Ms": 2282,
+    "p95Ms": 2936
   },
   "limitations": [
     "Development fixtures, not held-out attacks or a production detection estimate.",
@@ -38,8 +38,8 @@
       "verdict": "benign",
       "status": "observed",
       "maxScore": 0.0003459916333667934,
-      "adapterLatencyMs": 1419,
-      "roundTripMs": 1466,
+      "adapterLatencyMs": 2040,
+      "roundTripMs": 2068,
       "correct": true,
       "model": {
         "key": "piguard",
@@ -56,8 +56,8 @@
       "verdict": "benign",
       "status": "observed",
       "maxScore": 0.00021654405281879008,
-      "adapterLatencyMs": 1278,
-      "roundTripMs": 1291,
+      "adapterLatencyMs": 2188,
+      "roundTripMs": 2202,
       "correct": true,
       "model": {
         "key": "piguard",
@@ -74,8 +74,8 @@
       "verdict": "benign",
       "status": "observed",
       "maxScore": 0.031143832951784134,
-      "adapterLatencyMs": 1206,
-      "roundTripMs": 1228,
+      "adapterLatencyMs": 2142,
+      "roundTripMs": 2157,
       "correct": true,
       "model": {
         "key": "piguard",
@@ -92,8 +92,8 @@
       "verdict": "suspicious",
       "status": "observed",
       "maxScore": 0.9477691650390625,
-      "adapterLatencyMs": 1252,
-      "roundTripMs": 1271,
+      "adapterLatencyMs": 2250,
+      "roundTripMs": 2282,
       "correct": false,
       "model": {
         "key": "piguard",
@@ -110,8 +110,8 @@
       "verdict": "benign",
       "status": "observed",
       "maxScore": 0.008315778337419033,
-      "adapterLatencyMs": 1579,
-      "roundTripMs": 1601,
+      "adapterLatencyMs": 2914,
+      "roundTripMs": 2936,
       "correct": true,
       "model": {
         "key": "piguard",
@@ -128,8 +128,8 @@
       "verdict": "benign",
       "status": "observed",
       "maxScore": 0.11716748028993607,
-      "adapterLatencyMs": 1313,
-      "roundTripMs": 1338,
+      "adapterLatencyMs": 2546,
+      "roundTripMs": 2562,
       "correct": true,
       "model": {
         "key": "piguard",
@@ -146,8 +146,8 @@
       "verdict": "suspicious",
       "status": "observed",
       "maxScore": 0.997285008430481,
-      "adapterLatencyMs": 1110,
-      "roundTripMs": 1131,
+      "adapterLatencyMs": 2137,
+      "roundTripMs": 2159,
       "correct": true,
       "model": {
         "key": "piguard",
@@ -164,8 +164,8 @@
       "verdict": "suspicious",
       "status": "observed",
       "maxScore": 0.9998910427093506,
-      "adapterLatencyMs": 1141,
-      "roundTripMs": 1166,
+      "adapterLatencyMs": 2172,
+      "roundTripMs": 2196,
       "correct": true,
       "model": {
         "key": "piguard",
@@ -182,8 +182,8 @@
       "verdict": "suspicious",
       "status": "observed",
       "maxScore": 0.9998205304145813,
-      "adapterLatencyMs": 1446,
-      "roundTripMs": 1465,
+      "adapterLatencyMs": 2681,
+      "roundTripMs": 2700,
       "correct": true,
       "model": {
         "key": "piguard",
@@ -200,8 +200,8 @@
       "verdict": "suspicious",
       "status": "observed",
       "maxScore": 0.9987744688987732,
-      "adapterLatencyMs": 1223,
-      "roundTripMs": 1232,
+      "adapterLatencyMs": 2361,
+      "roundTripMs": 2389,
       "correct": true,
       "model": {
         "key": "piguard",
@@ -218,8 +218,8 @@
       "verdict": "benign",
       "status": "observed",
       "maxScore": 0.5826097726821899,
-      "adapterLatencyMs": 1324,
-      "roundTripMs": 1343,
+      "adapterLatencyMs": 2529,
+      "roundTripMs": 2556,
       "correct": false,
       "model": {
         "key": "piguard",
@@ -236,8 +236,8 @@
       "verdict": "suspicious",
       "status": "observed",
       "maxScore": 0.9997695088386536,
-      "adapterLatencyMs": 1188,
-      "roundTripMs": 1212,
+      "adapterLatencyMs": 2341,
+      "roundTripMs": 2363,
       "correct": true,
       "model": {
         "key": "piguard",

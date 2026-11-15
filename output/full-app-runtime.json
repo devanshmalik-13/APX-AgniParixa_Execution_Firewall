@@ -1,0 +1,20 @@
+{
+  "checkedAt": "2026-11-15T06:22:43.879Z",
+  "status": "passed",
+  "checks": [
+    "/: HTTP 200 and app markup",
+    "/support: HTTP 200 and app markup",
+    "/evaluation: HTTP 200 and app markup",
+    "/observer: HTTP 200 and app markup",
+    "/lab: HTTP 200 and app markup",
+    "retired retrieval endpoints return 404 for reads and writes",
+    "connection read/disconnect require authentication; cross-origin mutation rejected",
+    "actual Gemini function-call probe; encrypted HttpOnly SameSite=Strict one-hour connection",
+    "dashboard resolves personal Gemini connection without exposing the key",
+    "tampered encrypted session fails closed with a sanitized error",
+    "disconnect expires personal connection and retains configured Gemini"
+  ],
+  "provider": "gemini",
+  "model": "gemini-3.5-flash-lite",
+  "keysPersistedInReport": false
+}

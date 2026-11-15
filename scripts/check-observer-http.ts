@@ -1,6 +1,7 @@
 /** Actual local app + pretrained service lifecycle checks. No external effects. */
 import assert from "node:assert/strict";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
 import type { ObserverReadiness, ObserverResult } from "../lib/observer/types";
 import type { SupportPlan } from "../lib/support/types";
 
@@ -87,6 +88,27 @@ try {
       assert.ok(observation.latencyMs >= 14000, "Only a measured deadline expiry is accepted as an alternative to complete inference");
     }
     longInputMeasurement = { serviceLatencyMs: complete.latencyMs, appStatus: observation.status, appLatencyMs: observation.latencyMs, tokens: complete.coverage.totalTokens, segments: complete.segments.length };
+    // Aborting the app request does not cancel CPU inference in the service.
+    // Wait for that bounded work to finish so a following evaluation does not
+    // mistake the expected busy response for twelve failed model predictions.
+    const readyBy = Date.now() + 60_000;
+    while (true) {
+      const probe: Response = await fetch("http://127.0.0.1:8091/v1/observe", {
+        method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ texts: [{ id: "after-long-scan", source: "customer_context", text: "Please explain my invoice." }] }),
+        signal: AbortSignal.timeout(15_000), redirect: "manual",
+      });
+      if (probe.status === 200) {
+        const resumed = await probe.json() as ObserverResult;
+        assert.equal(resumed.status, "observed");
+        assert.equal(resumed.coverage.complete, true);
+        break;
+      }
+      assert.equal(probe.status, 503, "Only a busy observer may be retried after the long scan");
+      assert.equal((await probe.json() as { detail: string }).detail, "The observer is busy; retry later.");
+      assert.ok(Date.now() < readyBy, "The observer must resume short inference within 60 seconds");
+      await delay(1000);
+    }
   });
 } catch (error) { failure = error; }
 finally {

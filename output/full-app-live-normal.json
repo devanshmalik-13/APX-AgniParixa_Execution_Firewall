@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-15T06:20:34.192Z",
+  "status": "passed",
+  "scenario": "normal",
+  "mode": "live",
+  "ticketId": "tkt-1042",
+  "executionPerformed": false,
+  "checks": [
+    "authenticated sandbox and assigned records available",
+    "actual live mode, configured model, and valid immutable receipt",
+    "scoped live invoice read and permitted reply to the original requester",
+    "staging records only the proposal and audit, with no connector effects",
+    "staged live plan rejected; connector state unchanged"
+  ],
+  "scope": "When live mode is configured, this checker verifies one actual provider-backed support-agent planning run through the local authenticated app. It rejects the plan after inspection and never executes refunds, invoice writes, queued messages, or email delivery. Status not_run means no provider request occurred. This is a smoke check, not an attack-success-rate benchmark.",
+  "baseUrl": "http://localhost:5173",
+  "liveAvailable": true,
+  "configuredModel": "gemini-3.5-flash-lite",
+  "configuredProvider": "gemini",
+  "planId": "671b5c82-e7af-47cc-8ef4-bcaad92ea45b",
+  "actualModel": "gemini-3.5-flash-lite",
+  "actualProvider": "gemini",
+  "providerPlanningLatencyMs": 23584,
+  "receiptHash": "47eaeef7737598937f782379be683a60a4f268e53aa6477d29af2a7e2d10b79d",
+  "proposals": [
+    {
+      "id": "action-1",
+      "tool": "refund",
+      "decision": "allow",
+      "reasons": [
+        "Within the server-owned ticket capability."
+      ],
+      "reversible": true
+    },
+    {
+      "id": "action-2",
+      "tool": "update_invoice",
+      "decision": "allow",
+      "reasons": [
+        "Within the server-owned ticket capability."
+      ],
+      "reversible": true
+    },
+    {
+      "id": "action-3",
+      "tool": "send_reply",
+      "decision": "allow",
+      "reasons": [
+        "Within the server-owned ticket capability."
+      ],
+      "reversible": true
+    }
+  ],
+  "trace": [
+    {
+      "step": 1,
+      "tool": "read_invoice",
+      "decision": "allow",
+      "detail": "Read scoped invoice inv-1042."
+    },
+    {
+      "step": 2,
+      "tool": "propose_refund",
+      "decision": "allow",
+      "detail": "{\"decision\":\"allow\",\"reasons\":[\"Within the server-owned ticket capability.\"],\"staged\":true,\"executed\":false}"
+    },
+    {
+      "step": 3,
+      "tool": "propose_invoice_update",
+      "decision": "allow",
+      "detail": "{\"decision\":\"allow\",\"reasons\":[\"Within the server-owned ticket capability.\"],\"staged\":true,\"executed\":false}"
+    },
+    {
+      "step": 4,
+      "tool": "propose_reply",
+      "decision": "allow",
+      "detail": "{\"decision\":\"allow\",\"reasons\":[\"Within the server-owned ticket capability.\"],\"staged\":true,\"executed\":false}"
+    }
+  ],
+  "cleanup": "staged_plan_rejected",
+  "totalElapsedMs": 29107
+}

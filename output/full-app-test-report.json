@@ -1,0 +1,112 @@
+{
+  "checkedAt": "2026-11-15T06:28:47.630947+00:00",
+  "localDate": "2026-11-15",
+  "timezone": "Asia/Calcutta",
+  "sourceBaseCommit": "8c32ee50a051ced9096a43a080caed335c8295d7",
+  "appUrl": "http://localhost:5173",
+  "observerUrl": "http://127.0.0.1:8091",
+  "functionalChecks": "passed",
+  "unitTests": {
+    "typescript": 251,
+    "python": 13,
+    "failed": 0,
+    "skipped": 0
+  },
+  "lint": "passed with zero warnings",
+  "typecheck": "passed",
+  "productionBuild": "passed",
+  "policyEvaluations": {
+    "securityCases": 16,
+    "supportCases": 20,
+    "comparisonStrategies": 5,
+    "comparisonCases": 29
+  },
+  "httpIntegration": {
+    "supportGroups": 8,
+    "observerGroups": 6,
+    "attackLab": "passed validation, redaction, recipients, memory, persistence, approval concurrency, audit analysis, JSON export, PDFs and benchmark",
+    "runtimeAndModelConnection": [
+      "/: HTTP 200 and app markup",
+      "/support: HTTP 200 and app markup",
+      "/evaluation: HTTP 200 and app markup",
+      "/observer: HTTP 200 and app markup",
+      "/lab: HTTP 200 and app markup",
+      "retired retrieval endpoints return 404 for reads and writes",
+      "connection read/disconnect require authentication; cross-origin mutation rejected",
+      "actual Gemini function-call probe; encrypted HttpOnly SameSite=Strict one-hour connection",
+      "dashboard resolves personal Gemini connection without exposing the key",
+      "tampered encrypted session fails closed with a sanitized error",
+      "disconnect expires personal connection and retains configured Gemini"
+    ]
+  },
+  "liveGemini": {
+    "model": "gemini-3.5-flash-lite",
+    "normal": "passed",
+    "injection": "passed",
+    "plansRejected": true,
+    "connectorEffects": false
+  },
+  "browserChecks": [
+    "Inbox loads trusted ticket and invoice",
+    "Gemini selected by default; retired retrieval controls absent",
+    "Injected replay blocks export and redirected reply",
+    "Strict execution disabled until explicit approval",
+    "Permitted sandbox actions execute and recover",
+    "Recovered plan visible in Activity",
+    "Connect panel displays configured Gemini",
+    "Comparison selection and recomputation update metrics",
+    "Fixture search filters the case inspector",
+    "Observer Scan, Results, Setup and Method load",
+    "Real browser inference flags injected sample with complete coverage",
+    "Attack simulation persists a blocked gateway result",
+    "16-case benchmark completes",
+    "History opens identity and incident details",
+    "Mark analyzed moves the test incident to analyzed logs"
+  ],
+  "observerDevelopmentEvaluation": {
+    "status": "completed",
+    "counts": {
+      "total": 12,
+      "classified": 12,
+      "suspiciousInputs": 6,
+      "benignInputs": 6,
+      "missedSuspiciousInputs": 1,
+      "falseAlarms": 1,
+      "unknown": 0
+    },
+    "latency": {
+      "metric": "warm sequential app-to-service round trip on this local machine",
+      "p50Ms": 2282,
+      "p95Ms": 2936
+    }
+  },
+  "longContext": {
+    "serviceLatencyMs": 24800.39,
+    "appStatus": "unavailable",
+    "appLatencyMs": 15007,
+    "tokens": 540,
+    "segments": 2
+  },
+  "fix": "The observer HTTP checker now waits for a short scan to succeed after a timed-out long request, retrying only explicit busy responses for at most 60 seconds.",
+  "limitations": [
+    "The observer missed one attack and raised one false alarm on 12 authored inputs; this is not a general accuracy estimate.",
+    "A 540-token local CPU scan took about 25 seconds; the app returned unavailable/unknown at its 15-second deadline.",
+    "Meta Prompt Guard comparators and non-Gemini live providers were not run; they require separate model access or credentials.",
+    "Tests used synthetic records and sandbox effects. Successful test executions were recovered; audit records remain."
+  ],
+  "githubCi": {
+    "testedCommit": "8c32ee50a051ced9096a43a080caed335c8295d7",
+    "conclusion": "success",
+    "url": "https://github.com/devanshmalik-13/APX-AgniParixa_Execution_Firewall/actions/runs/43683539235"
+  },
+  "evidenceFiles": [
+    "output/full-app-live-normal.json",
+    "output/full-app-live-injection.json",
+    "output/full-app-runtime.json",
+    "output/observer-http-check.json",
+    "output/observer-evaluation.json",
+    "output/support-http-check.json",
+    "output/full-app-planner-browser.jpg",
+    "output/full-app-observer-browser.jpg"
+  ]
+}

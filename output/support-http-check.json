@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-15T05:58:50.104Z",
+  "generatedAt": "2026-11-15T06:21:51.395Z",
   "baseUrl": "http://localhost:5173",
   "checks": [
     {
@@ -38,17 +38,17 @@
   ],
   "success": true,
   "plansCreated": [
-    "da7a3710-2f77-4327-a7c3-364c95cbb681",
-    "89516cec-8497-4908-a982-2b76b57e2cfc",
-    "7537f197-71a7-4e32-820d-51ecc0d736db",
-    "e25d6f0f-1a9e-4413-a5e8-ff5d8f10fca9",
-    "7ad14702-eb4c-4134-8464-9c2a0f3b8463",
-    "f9f62176-28fb-47fb-84f6-557717f45eb0",
-    "8a506d51-7447-4273-9af0-bbff8f08d6e0",
-    "8635b00f-1719-4a0a-ba9c-6dc04eae40f2",
-    "6ae85cb9-2421-41c4-9fd7-7c6c742a7f47",
-    "2762b270-768f-45a0-bbbe-62b6d8155ca8",
-    "3cab8a69-b0ac-4464-883f-1bd35659f508"
+    "74e73b39-3e72-4c74-a9b5-7a574ae20414",
+    "bbaafb67-9ba7-4b02-8097-14d0119211c3",
+    "b2ff9b4a-b629-44e2-9f36-a223c77d28ce",
+    "1d835dc8-ea8b-4b5e-97c6-1fdc2a3435fc",
+    "7df02a8f-53f2-443e-bcdc-f925d444985d",
+    "7f02ef46-0e43-40fb-a3ee-741651a5c7bb",
+    "fb45b197-e9ef-48be-92c4-18fc8eab8b29",
+    "234e5bc4-2f1f-40a7-a139-1bb0c5cde7c9",
+    "45ff5864-e3c9-48d8-8b94-362c382481f2",
+    "13922d0c-9b49-4498-8751-04185cd69e3b",
+    "4cafb690-57be-4054-b182-73234e1064a8"
   ],
   "scope": "Local authenticated replay agent with actual durable D1 writes and a cancellable sandbox outbox. No model calls or mail delivery."
 }
