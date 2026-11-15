@@ -475,6 +475,33 @@ test("a proposal sealed under an older policy can be rejected but cannot execute
   } finally { sqlite.close(); }
 });
 
+test("retired web evidence remains sealed for rejection and recovery but cannot execute", async () => {
+  for (const alreadyExecuted of [false, true]) {
+    const { sqlite, store } = database();
+    try {
+      const plan = await store.stage("owner", request());
+      if (alreadyExecuted) await store.operate("owner", plan.id, operation(plan, "execute"));
+      const legacy = { ...plan, webEvidence: { id: "historical-reference", text: "Archived content" } };
+      legacy.receiptHash = await hashPlan(legacy);
+      assert.equal(await verifyPlan(legacy), false);
+      assert.notEqual(await hashPlan({ ...legacy, webEvidence: { ...legacy.webEvidence, text: "Substituted" } }), legacy.receiptHash);
+      sqlite.prepare("UPDATE support_plans SET immutable_json=?,receipt_hash=? WHERE owner_id=? AND id=?").run(JSON.stringify(legacy), legacy.receiptHash, "owner", plan.id);
+      if (alreadyExecuted) {
+        const recovered = await store.operate("owner", plan.id, operation(legacy, "recover"));
+        assert.equal(recovered.status, "recovered");
+        assert.deepEqual(await store.operate("owner", plan.id, operation(legacy, "recover")), recovered);
+        const snapshot = await store.dashboard("owner");
+        assert.deepEqual(snapshot.invoices[0], { ...plan.invoiceBefore, version: 2 });
+        assert.equal(snapshot.outbox[0].status, "cancelled");
+      } else {
+        await assert.rejects(store.operate("owner", plan.id, operation(legacy, "execute", true)), status(409));
+        assert.equal((await store.operate("owner", plan.id, operation(legacy, "reject"))).status, "rejected");
+        assert.equal((await store.dashboard("owner")).outbox.length, 0);
+      }
+    } finally { sqlite.close(); }
+  }
+});
+
 test("committed older-policy effects remain idempotent and recoverable using their original receipt", async () => {
   const { sqlite, store } = database();
   try {

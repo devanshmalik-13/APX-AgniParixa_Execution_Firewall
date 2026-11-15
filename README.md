@@ -1,34 +1,19 @@
-# APX — AgniParixa Execution Firewall · TinyFish Edition
+# APX — AgniParixa Execution Firewall
 
-[GitHub repository](https://github.com/devanshmalik-13/APX-AgniParixa_Execution_Firewall_TinyFish_Edition) · [Code quality review and verification](./docs/CODE_QUALITY_REVIEW.md)
+[GitHub repository](https://github.com/devanshmalik-13/APX-AgniParixa_Execution_Firewall) · [Code quality review and verification](./docs/CODE_QUALITY_REVIEW.md)
 
 APX turns an AI agent's proposed support actions into a reviewable, scoped transaction. It reads an assigned ticket, previews invoice changes and replies, enforces customer-specific permissions outside the model, commits permitted actions atomically, and supports compensating recovery.
 
-## TinyFish integration — live web references, controlled AI actions
+## Gemini live planning
 
-**TinyFish Fetch is APX's web-retrieval layer.** It brings public billing guidance into the support workflow so the agent can draft a reply using a retrieved source. APX then checks the proposed actions against the customer's trusted permissions before anything can execute.
+The planner uses your server-configured Gemini key to interpret the assigned ticket, read its scoped invoice and stage proposed actions for review. The web-retrieval integration has been removed; the support workflow requires only the model-provider key.
 
-```text
-TinyFish Fetch → untrusted web reference → model proposal → APX policy → review → sandbox execution
-```
+1. Configure `PLANNER_PROVIDER=gemini` and `GEMINI_API_KEY` in ignored `.dev.vars`, then restart the local app. An optional `GEMINI_MODEL` selects the model.
+2. Select a ticket and open **Planner**. Live mode is selected automatically when the configured key is available. **Connect** also accepts a personal Gemini key in its password field.
+3. Stage a plan, inspect its policy decisions and receipt in **Review**, then approve or reject it. Sandbox execution remains a separate action.
+4. Use `npm run check:live` against the running local app to verify actual Gemini planning. The checker rejects the resulting plan without executing effects.
 
-### What TinyFish adds
-
-- **Reference retrieval in Planner:** fetch an approved Stripe refunds or credit-notes page through TinyFish's Fetch API. The current integration reads public pages; it does not automate a logged-in billing account.
-- **Evidence the reviewer can inspect:** show the source URL, retrieval time, excerpt, truncation notice and SHA-256 content hash. Store the reference under the signed-in account and selected ticket, then bind it to the plan receipt.
-- **A protected handoff to the model:** treat retrieved text as untrusted data. A page cannot grant a larger refund, select another customer's invoice or authorize a new recipient. General Stripe guidance does not establish this customer's entitlement.
-- **An explicit path without a model:** **Stage a reference reply · no LLM** quotes the retrieved source in a template reply. It requires strict approval and proposes no refund or invoice change.
-
-### Try the TinyFish workflow
-
-1. Select a support ticket and open **Planner** at `/support?panel=planner`.
-2. Choose a public reference, enter your TinyFish key in the password field, and click **Fetch reference with TinyFish**. Alternatively, configure server-only `TINYFISH_API_KEY` in ignored `.dev.vars` and restart the app.
-3. Inspect the reference. Use a connected model with **Live** planning, or choose the explicit reference-reply path above. TinyFish and model-provider keys are separate.
-4. Open **Review** to inspect the actions, reference evidence and `tinyfish_fetch` trace entry. Approve or reject the proposal, then inspect persisted sandbox effects in **Activity**.
-
-The one-use key is cleared after the request and is never saved in browser storage, plans or audit records. Only the selected public URL and fixed extraction settings go to TinyFish; customer identities, invoice data and model keys are excluded. The adapter enforces approved source URLs, response bounds, a timeout, redaction and a per-account cooldown. References expire for new staging after 15 minutes.
-
-See the [TinyFish integration walkthrough](./docs/TINYFISH_INTEGRATION.md), [Fetch adapter](./lib/tinyfish/client.ts), [API route](./app/api/tinyfish/route.ts) and [regression tests](./tests/tinyfish.test.ts). Run `npm run check:tinyfish-http` for local integration checks; `npm run check:tinyfish` additionally requires a real TinyFish key and attempts live model planning. Retrieval and model-generation outcomes are reported separately. [Hackathon readiness](./docs/KRITICAL_HACKS_2026_READINESS.md) tracks submission requirements.
+Keys stay server-side and never enter committed files, plans or audit records. Provider failures are reported without switching to replay. Historical evidence-bearing receipts remain hash-bound for rejection and recovery, but cannot execute new effects; stage a fresh plan instead.
 
 ## Application overview
 
@@ -70,7 +55,7 @@ Open the printed local URL and use **Sign in with ChatGPT**. Local development p
 
 Replay works without a model-provider key and is labeled as a deterministic fixture. It does not interpret the optional customer text. Live mode uses a bounded, provider-independent function-calling loop with OpenAI Responses, Gemini Generate Content, or Groq/OpenRouter Chat Completions, and interprets the source ticket, selected imported-attachment scenario, and additional untrusted customer context. It cannot execute write tools directly.
 
-Select `PLANNER_PROVIDER=gemini` with server-only `GEMINI_API_KEY` and optional `GEMINI_MODEL` (default `gemini-3.5-flash-lite`), or `PLANNER_PROVIDER=openai` with `OPENAI_API_KEY` and optional `OPENAI_MODEL` (default `gpt-5-mini`). When no provider is selected, a configured Gemini key selects Gemini; otherwise the existing OpenAI default is retained. An explicit selection never falls back to another provider if its key is missing or its request fails.
+Select `PLANNER_PROVIDER=gemini` with server-only `GEMINI_API_KEY` and optional `GEMINI_MODEL` (default `gemini-3.5-flash-lite`), or `PLANNER_PROVIDER=openai` with `OPENAI_API_KEY` and optional `OPENAI_MODEL` (default `gpt-5-mini`). Gemini is the default provider. For compatibility, an OpenAI-only server configuration still selects OpenAI. An explicit selection never falls back to another provider if its key is missing or its request fails.
 
 Local runtime secrets belong in ignored `.dev.vars`; hosted secrets must be configured separately through the Sites environment-variable tool. Never commit a key, put it in browser code, or paste it into chat. Missing keys disable Live mode; provider failures never fall back silently to Replay. Gemini sends credentials only in the `x-goog-api-key` header to the fixed Google endpoint and preserves thought signatures in memory across tool turns. Responses are bounded to 128 KB, redirects are not followed, and provider error bodies are never shown. Google key formats are included in audit redaction and secret blocking. The provider identity is sealed in new live-plan receipts; older receipts remain compatible.
 

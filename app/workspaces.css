@@ -533,24 +533,6 @@
 @media (prefers-reduced-motion: reduce) { .apx-lab .lab-flow-pulse, .apx-lab .lab-flow-node-flash { filter: none; } }
 
 /* One connection entry point; permissions and current-plan diagnostics expand in context. */
-.apx-workspace .apx-web-research { margin: 20px 0; padding: 21px; border: 1px solid #88b9d62b; border-radius: 17px; background: #88b9d605; }
-.apx-workspace .apx-web-heading { display: flex; align-items: center; gap: 12px; }
-.apx-workspace .apx-web-heading > svg { color: var(--workspace-blue); flex-shrink: 0; }
-.apx-workspace .apx-web-heading h3 { color: #d1dbd6; font-size: 15px; font-weight: 600; }
-.apx-workspace .apx-web-heading p, .apx-workspace .apx-web-help { color: #97a6a8; font-size: 11px; line-height: 1.65; margin-top: 7px; }
-.apx-workspace .apx-web-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 15px; margin: 19px 0; }
-.apx-workspace .apx-web-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; }
-.apx-workspace .apx-web-attached { display: flex; align-items: center; gap: 9px; color: var(--workspace-lime); font-size: 11px; margin-top: 17px; }
-.apx-workspace .apx-web-attached span { flex: 1; }
-.apx-workspace .apx-web-evidence { border: 1px solid #88b9d626; border-radius: 12px; margin: 15px 0; overflow: hidden; }
-.apx-workspace .apx-web-evidence summary { padding: 14px; cursor: pointer; color: #c2d2d8; font-size: 12px; overflow-wrap: anywhere; }
-.apx-workspace .apx-web-evidence summary small { display: block; margin: 6px 0 0 15px; color: var(--workspace-amber); font-size: 10px; }
-.apx-workspace .apx-web-evidence > div { padding: 0 15px 15px; font-size: 11px; color: #92a2a8; line-height: 1.7; }
-.apx-workspace .apx-web-evidence a { display: inline-flex; gap: 7px; align-items: center; color: var(--workspace-blue); overflow-wrap: anywhere; max-width: 100%; }
-.apx-workspace .apx-web-evidence p { margin-top: 8px; }
-.apx-workspace .apx-web-evidence .apx-web-hash { overflow-wrap: anywhere; font-size: 10px; }
-.apx-workspace .apx-web-evidence pre { max-height: 230px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: #080d11; border-radius: 8px; padding: 14px; margin-top: 12px; font: 11px/1.7 monospace; }
-@media (max-width: 700px) { .apx-workspace .apx-web-fields { grid-template-columns: minmax(0,1fr); } .apx-workspace .apx-web-research { padding: 16px; } .apx-workspace .apx-web-fields input, .apx-workspace .apx-web-fields select { font-size: 16px; } }
 .apx-eval .ev-dock { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .apx-workspace .apx-connect-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px; align-items: start; }
 .apx-workspace .apx-connect-card { padding: 26px; min-width: 0; }

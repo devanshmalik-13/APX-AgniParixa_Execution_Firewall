@@ -117,6 +117,8 @@ test("Gemini enforces tool and iteration limits without requesting more inferenc
 });
 
 test("provider selection is server-owned, backward compatible, and never silently falls back", () => {
+  assert.equal(plannerConfig({}).provider, "gemini");
+  assert.equal(plannerConfig({}).apiKey, undefined);
   assert.equal(plannerConfig({ OPENAI_API_KEY: "old" }).provider, "openai");
   assert.equal(plannerConfig({ GEMINI_API_KEY: "new", OPENAI_API_KEY: "old" }).provider, "gemini");
   const missing = plannerConfig({ PLANNER_PROVIDER: "gemini", OPENAI_API_KEY: "old" });

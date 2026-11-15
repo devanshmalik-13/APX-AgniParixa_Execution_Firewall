@@ -1,6 +1,5 @@
 import type { ObserverEvidence } from "../observer/types";
 import type { PlannerProvider } from "./provider-config";
-import type { WebEvidence } from "../tinyfish/types";
 
 export type InvoiceStatus = "open" | "disputed" | "resolved";
 export type AgentMode = "replay" | "live" | "external";
@@ -47,7 +46,8 @@ export interface SupportPlan {
   observer?: ObserverEvidence;
   /** Optional for compatibility with earlier immutable receipts. */
   provider?: PlannerProvider;
-  webEvidence?: WebEvidence;
+  /** Historical receipt data only; new plans cannot attach web evidence. */
+  webEvidence?: unknown;
 }
 export interface OutboxMessage {
   id: string; planId: string; to: string; subject: string; body: string;
@@ -62,7 +62,7 @@ export interface SupportDashboard {
   config: { liveAvailable: boolean; provider: PlannerProvider; model: string; sandbox: true };
 }
 export interface PlanRequest {
-  ticketId: string; mode: Exclude<AgentMode, "external">; scenario: Scenario; profile: PolicyProfile; note?: string; webEvidenceId?: string;
+  ticketId: string; mode: Exclude<AgentMode, "external">; scenario: Scenario; profile: PolicyProfile; note?: string;
 }
 /** An external agent supplies proposals only, never authority or approval. */
 export interface ExternalProposalRequest { ticketId: string; actions: SupportAction[] }

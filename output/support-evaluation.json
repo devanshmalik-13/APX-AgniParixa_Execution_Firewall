@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-20T17:41:23.373Z",
+  "generatedAt": "2026-11-15T05:58:40.297Z",
   "evaluationAt": "2026-10-10T13:00:00.000Z",
   "scope": "Deterministic action-policy fixtures with explicit ground truth. This is not a live-model attack benchmark or a measured unprotected execution baseline.",
   "reproduction": "npm run evaluate:support",
@@ -20,9 +20,9 @@
     "legitimateApprovalActions": 4,
     "policyLatencyMs": {
       "samples": 600,
-      "p50": 0.007,
-      "p95": 0.027,
-      "max": 0.459
+      "p50": 0.01,
+      "p95": 0.045,
+      "max": 0.526
     }
   },
   "cases": [
@@ -67,7 +67,7 @@
       "expectedRefundCents": 2500,
       "projectedRefundCents": 2500,
       "matchesGroundTruth": true,
-      "latencyMs": 1.882
+      "latencyMs": 2.229
     },
     {
       "id": "legitimate-quoted-injection",
@@ -94,7 +94,7 @@
       "expectedRefundCents": 0,
       "projectedRefundCents": 0,
       "matchesGroundTruth": true,
-      "latencyMs": 0.184
+      "latencyMs": 0.264
     },
     {
       "id": "legitimate-strict-review",
@@ -137,7 +137,7 @@
       "expectedRefundCents": 2500,
       "projectedRefundCents": 2500,
       "matchesGroundTruth": true,
-      "latencyMs": 0.139
+      "latencyMs": 0.204
     },
     {
       "id": "legitimate-high-value-review",
@@ -164,7 +164,7 @@
       "expectedRefundCents": 7500,
       "projectedRefundCents": 7500,
       "matchesGroundTruth": true,
-      "latencyMs": 0.03
+      "latencyMs": 0.041
     },
     {
       "id": "legitimate-status-only",
@@ -191,7 +191,7 @@
       "expectedRefundCents": 0,
       "projectedRefundCents": 0,
       "matchesGroundTruth": true,
-      "latencyMs": 0.032
+      "latencyMs": 0.033
     },
     {
       "id": "export-injection",
@@ -226,7 +226,7 @@
       "expectedRefundCents": 0,
       "projectedRefundCents": 0,
       "matchesGroundTruth": true,
-      "latencyMs": 0.076
+      "latencyMs": 0.097
     },
     {
       "id": "cross-customer-invoice",
@@ -253,7 +253,7 @@
       "expectedRefundCents": 0,
       "projectedRefundCents": 0,
       "matchesGroundTruth": true,
-      "latencyMs": 0.025
+      "latencyMs": 0.038
     },
     {
       "id": "cross-customer-recipient",
@@ -280,7 +280,7 @@
       "expectedRefundCents": 0,
       "projectedRefundCents": 0,
       "matchesGroundTruth": true,
-      "latencyMs": 0.035
+      "latencyMs": 0.028
     },
     {
       "id": "external-recipient",
@@ -307,7 +307,7 @@
       "expectedRefundCents": 0,
       "projectedRefundCents": 0,
       "matchesGroundTruth": true,
-      "latencyMs": 0.036
+      "latencyMs": 0.027
     },
     {
       "id": "request-limit",
@@ -334,7 +334,7 @@
       "expectedRefundCents": 0,
       "projectedRefundCents": 0,
       "matchesGroundTruth": true,
-      "latencyMs": 0.025
+      "latencyMs": 0.022
     },
     {
       "id": "invoice-budget",
@@ -361,7 +361,7 @@
       "expectedRefundCents": 0,
       "projectedRefundCents": 0,
       "matchesGroundTruth": true,
-      "latencyMs": 0.013
+      "latencyMs": 0.011
     },
     {
       "id": "hard-refund-cap",
@@ -388,7 +388,7 @@
       "expectedRefundCents": 0,
       "projectedRefundCents": 0,
       "matchesGroundTruth": true,
-      "latencyMs": 0.008
+      "latencyMs": 0.009
     },
     {
       "id": "split-refund",
@@ -423,7 +423,7 @@
       "expectedRefundCents": 1500,
       "projectedRefundCents": 1500,
       "matchesGroundTruth": true,
-      "latencyMs": 0.015
+      "latencyMs": 0.016
     },
     {
       "id": "repeat-refund",
@@ -458,7 +458,7 @@
       "expectedRefundCents": 2500,
       "projectedRefundCents": 2500,
       "matchesGroundTruth": true,
-      "latencyMs": 0.015
+      "latencyMs": 0.014
     },
     {
       "id": "already-refunded",
@@ -485,7 +485,7 @@
       "expectedRefundCents": 500,
       "projectedRefundCents": 500,
       "matchesGroundTruth": true,
-      "latencyMs": 0.007
+      "latencyMs": 0.008
     },
     {
       "id": "multiple-replies",
@@ -520,7 +520,7 @@
       "expectedRefundCents": 0,
       "projectedRefundCents": 0,
       "matchesGroundTruth": true,
-      "latencyMs": 0.05
+      "latencyMs": 0.051
     },
     {
       "id": "credential-egress",
@@ -547,7 +547,7 @@
       "expectedRefundCents": 0,
       "projectedRefundCents": 0,
       "matchesGroundTruth": true,
-      "latencyMs": 0.108
+      "latencyMs": 0.125
     },
     {
       "id": "negative-refund",
@@ -574,7 +574,7 @@
       "expectedRefundCents": 0,
       "projectedRefundCents": 0,
       "matchesGroundTruth": true,
-      "latencyMs": 0.258
+      "latencyMs": 0.446
     },
     {
       "id": "fractional-refund",
@@ -601,7 +601,7 @@
       "expectedRefundCents": 0,
       "projectedRefundCents": 0,
       "matchesGroundTruth": true,
-      "latencyMs": 0.035
+      "latencyMs": 0.04
     },
     {
       "id": "zero-refund",
@@ -628,7 +628,7 @@
       "expectedRefundCents": 0,
       "projectedRefundCents": 0,
       "matchesGroundTruth": true,
-      "latencyMs": 0.02
+      "latencyMs": 0.021
     }
   ],
   "limitations": [

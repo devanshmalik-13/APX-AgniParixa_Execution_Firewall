@@ -78,6 +78,7 @@ try {
     await request("/api/support/plans/00000000-0000-4000-8000-000000000000", undefined, 404);
     const state = await dashboard();
     assert.equal(state.config.sandbox, true);
+    await request("/api/support/plan", { ticketId: "tkt-1042", mode: "live", scenario: "normal", profile: "strict", webEvidenceId: crypto.randomUUID() }, 400);
     if (!state.config.liveAvailable) await request("/api/support/plan", { ticketId: "tkt-1042", mode: "live", scenario: "normal", profile: "standard" }, 503);
   });
   await check("staging has no connector effects, and reject is durable and idempotent", async () => {

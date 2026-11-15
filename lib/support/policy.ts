@@ -2,7 +2,6 @@ import { z } from "zod";
 import { scanForSecrets } from "../security/secret-scanner";
 import { redactAuditValue } from "../security/audit-redaction";
 import { supportTickets } from "./fixtures";
-import { verifiedWebEvidence } from "../tinyfish/integrity";
 import type { ActionDecision, PolicyProfile, SupportAction, SupportInvoice, SupportPlan, SupportTicket, TaskGrant } from "./types";
 
 const boundedId = z.string().min(1).max(100);
@@ -109,12 +108,10 @@ export async function verifyPlan(plan: SupportPlan, now = Date.now()): Promise<b
     const created = Date.parse(plan.createdAt);
     if (!ticket || !Number.isFinite(created) || now >= Date.parse(plan.expiresAt) || created > now || !["standard", "strict"].includes(plan.profile) || !["replay", "live", "external"].includes(plan.mode)) return false;
     if (plan.provider !== undefined && (plan.mode !== "live" || !["openai", "gemini", "groq", "openrouter"].includes(plan.provider))) return false;
-    if (plan.webEvidence !== undefined) {
-      if ((plan.mode !== "live" && !(plan.mode === "external" && plan.model === "tinyfish-reference-draft-v1"))
-        || !await verifiedWebEvidence(plan.webEvidence, created)) return false;
-    }
-    if (plan.mode === "external" && (plan.profile !== "strict" || !["external-proposal-v1", "tinyfish-reference-draft-v1"].includes(plan.model))) return false;
-    if (plan.model === "tinyfish-reference-draft-v1" && (!plan.webEvidence || plan.actions.length !== 1 || plan.actions[0].action.type !== "send_reply")) return false;
+    // Retired evidence stays hash-bound for rejecting or recovering historical
+    // plans, but cannot authorize a new execution after its integration is removed.
+    if (plan.webEvidence !== undefined) return false;
+    if (plan.mode === "external" && (plan.profile !== "strict" || plan.model !== "external-proposal-v1")) return false;
     const expected = evaluateSupportActions(ticket, plan.invoiceBefore, plan.actions.map((a) => a.action), plan.profile, created);
     return plan.expiresAt === expected.grant.expiresAt && canonicalJson(plan.grant) === canonicalJson(expected.grant) && canonicalJson(plan.actions) === canonicalJson(expected.actions) && plan.receiptHash === await hashPlan(plan);
   } catch { return false; }

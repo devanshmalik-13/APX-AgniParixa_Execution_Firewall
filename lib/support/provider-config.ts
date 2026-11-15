@@ -8,7 +8,7 @@ interface ProviderEnvironment {
 
 /** Server-owned selection: explicit choices never fall back to another provider. */
 export function plannerConfig(env: ProviderEnvironment): PlannerConfig {
-  const selected = env.PLANNER_PROVIDER || (env.GEMINI_API_KEY ? "gemini" : "openai");
+  const selected = env.PLANNER_PROVIDER || (env.OPENAI_API_KEY && !env.GEMINI_API_KEY ? "openai" : "gemini");
   if (selected !== "gemini" && selected !== "openai") throw new Error("Unsupported planner provider configuration.");
   return selected === "gemini"
     ? { provider: selected, apiKey: env.GEMINI_API_KEY, model: env.GEMINI_MODEL || "gemini-3.5-flash-lite" }

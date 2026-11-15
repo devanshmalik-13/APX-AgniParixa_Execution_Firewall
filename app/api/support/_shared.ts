@@ -5,12 +5,11 @@ import { createSupportStore, SupportStoreError } from "@/lib/support/store";
 import { createObserverClient } from "@/lib/observer/server";
 import { plannerConfig, PlannerProviderError } from "@/lib/support/provider-config";
 import { connectionFromRequest, openConnection } from "@/lib/support/model-connection";
-import { TinyFishError } from "@/lib/tinyfish/client";
 
 export const planRequestSchema = z.object({
   ticketId: z.string().min(1).max(100), mode: z.enum(["replay", "live"]),
   scenario: z.enum(["normal", "injection", "over-refund", "cross-tenant", "duplicate-refund"]),
-  profile: z.enum(["standard", "strict"]), note: z.string().max(2000).optional(), webEvidenceId: z.string().uuid().optional(),
+  profile: z.enum(["standard", "strict"]), note: z.string().max(2000).optional(),
 }).strict();
 export const operationSchema = z.object({
   operation: z.enum(["execute", "reject", "recover"]), receiptHash: z.string().regex(/^[a-f0-9]{64}$/),
@@ -76,7 +75,6 @@ export function supportResponse(data: unknown, status = 200) {
   return NextResponse.json(data, { status, headers: { "Cache-Control": "no-store, private", Vary: "oai-authenticated-user-id" } });
 }
 export function supportError(error: unknown) {
-  if (error instanceof TinyFishError) return supportResponse({ error: error.message }, error.status);
   if (error instanceof z.ZodError) return supportResponse({ error: "Invalid support request. Only documented fields are accepted.", issues: error.issues.map((issue) => ({ path: issue.path, message: issue.message })) }, 400);
   if (error instanceof SupportStoreError) return supportResponse({ error: error.message }, error.status);
   if (error instanceof PlannerProviderError) return supportResponse({ error: error.message }, 503);

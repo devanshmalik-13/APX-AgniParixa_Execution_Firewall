@@ -10,13 +10,12 @@ Move your cursor near the bottom edge to reveal the panel icons. Click **Panels*
 
 - **Inbox - choose the task.** Select a customer ticket. Read the request and check its invoice amount, previous refunds, and current state. Click **Plan this request** to continue.
 - **Connect - bring your own model.** Select Gemini, OpenAI, Groq, or OpenRouter, enter a model ID, and paste its API key into the password field. **Test & connect** verifies tool calling. Keys are encrypted, account-bound, and expire after one hour. **Use this model in Planner** continues the same protected workflow. **Bring an existing agent** stages external JSON proposals for Review.
-- **Planner - prepare a proposal.** Choose a scenario and permission profile. **Deterministic replay** uses fixed test proposals; **Live model** asks your connected model (or the configured demo model) to propose actions. Expand **Task permissions** to inspect the customer, invoice, recipient, refund ceiling, and expiry. Click **Stage plan**. Staging changes no customer records.
+- **Planner - prepare a proposal.** Choose a scenario and permission profile. **Deterministic replay** uses fixed test proposals; **Live model** asks your connected model (or the server-configured Gemini model) to propose actions. Live mode is selected on load when a key is configured. Expand **Task permissions** to inspect the customer, invoice, recipient, refund ceiling, and expiry. Click **Stage plan**. Staging changes no customer records.
 - **Review - decide what happens.** Inspect proposed changes and their allow, approval-required, or block labels. **Execute permitted actions** applies the permitted sandbox changes; approve flagged actions first when requested. **Reject plan** applies nothing. **Recover changes** reverses supported changes when the current state allows it. Blocked actions stay blocked. Expand **Tool trace and observer evidence** to inspect the recorded reads, proposals, and observer details.
 - **Activity - revisit the records.** **Plans** opens past plans. **Sandbox outbox** shows queued replies. **Audit trail** records what happened, including execution and recovery. Use this after a run to verify the outcome.
 
 ## Your first walkthrough
 
-**TinyFish in Planner:** paste a separate TinyFish key under **Bring live web context into the plan**, then fetch a public reference. Use it in a Live plan, or choose **Stage a reference reply · no LLM** for a deterministic quoted reply requiring strict approval. The reference appears in Review and is sealed into the plan receipt; it cannot grant new permissions.
 
 1. In **Inbox**, select a customer request and click **Plan this request**.
 2. In **Planner**, choose **Deterministic replay**, the legitimate scenario, and **Standard**. Click **Stage plan**.

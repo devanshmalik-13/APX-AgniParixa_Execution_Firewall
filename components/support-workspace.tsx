@@ -9,8 +9,6 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { WorkspaceHeader, WorkspaceHeading, WorkspacePath } from "@/components/workspace-chrome";
 
 import { ModelConnect } from "@/components/model-connect";
-import { TinyFishResearch, WebEvidenceCard } from "@/components/tinyfish-research";
-import type { WebEvidence } from "@/lib/tinyfish/types";
 import { modelProvider } from "@/lib/support/model-providers";
 
 import { scenarioContent } from "@/lib/support/fixtures";
@@ -72,8 +70,6 @@ export function SupportWorkspace() {
   const [scenario, setScenario] = useState<Scenario>("normal");
   const [profile, setProfile] = useState<PolicyProfile>("standard");
   const [note, setNote] = useState("");
-  const [webEvidence, setWebEvidence] = useState<WebEvidence | null>(null);
-  const [webBusy, setWebBusy] = useState(false);
   const [approved, setApproved] = useState(false);
   const [busy, setBusy] = useState<string | null>("loading");
   const [error, setError] = useState("");
@@ -106,6 +102,7 @@ export function SupportWorkspace() {
         if (controller.signal.aborted) return;
         if (requestedPanel) setPanel(requestedPanel.id);
         setDashboard(next);
+        setMode(next.config.liveAvailable ? "live" : "replay");
         setTicketId((current) => current || next.tickets[0]?.id || "");
         setAuthRequired(false);
         const requestedPlanId = new URLSearchParams(window.location.search).get("plan");
@@ -140,12 +137,12 @@ export function SupportWorkspace() {
   const allowedCount = plan?.actions.filter((item) => item.decision !== "block").length ?? 0;
   const blockedCount = plan?.actions.filter((item) => item.decision === "block").length ?? 0;
   const expired = !!plan && new Date(plan.expiresAt).getTime() <= clock;
+  const retiredReference = plan?.webEvidence !== undefined;
   const planOutbox = dashboard?.outbox.filter((item) => item.planId === plan?.id) ?? [];
   const planEvents = dashboard?.events.filter((item) => item.planId === plan?.id) ?? [];
 
   function chooseTicket(next: SupportTicket) {
     if (busy) return;
-    if (next.id !== ticketId) { setWebEvidence(null); setWebBusy(false); }
     setTicketId(next.id);
     setPlan(null);
     setApproved(false);
@@ -155,7 +152,6 @@ export function SupportWorkspace() {
 
   function choosePlan(next: SupportPlan) {
     if (busy) return;
-    if (next.ticketId !== ticketId) { setWebEvidence(null); setWebBusy(false); }
     setTicketId(next.ticketId);
     setPlan(next);
     setApproved(false);
@@ -179,7 +175,7 @@ export function SupportWorkspace() {
   }
 
   async function stage() {
-    if (locked.current || webBusy || !selectedTicket) return;
+    if (locked.current || !selectedTicket) return;
     locked.current = true;
     setBusy("stage");
     setError("");
@@ -188,7 +184,7 @@ export function SupportWorkspace() {
     try {
       const result = await readResponse<{ plan: SupportPlan }>(await fetch("/api/support/plan", {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ticketId, mode, scenario, profile, note: mode === "live" ? note.trim() || undefined : undefined, webEvidenceId: mode === "live" ? webEvidence?.id : undefined }),
+        body: JSON.stringify({ ticketId, mode, scenario, profile, note: mode === "live" ? note.trim() || undefined : undefined }),
       }));
       setPlan(result.plan);
       setPanel("review");
@@ -290,27 +286,26 @@ export function SupportWorkspace() {
               </div>
               <p className="apx-scenario-description">{scenarios.find((item) => item.value === scenario)?.description}</p>
               {scenario !== "normal" && <details className="apx-injected-source"><summary><FileText size={12} />Inspect appended attack text<ChevronDown size={12} /></summary><pre>{scenarioContent[scenario].trim()}</pre><p>Live mode reads this as ticket content. Replay stages fixed adversarial proposals for the same scenario.</p></details>}
-              <TinyFishResearch key={ticketId} ticketId={ticketId} disabled={!!busy} liveAvailable={!!dashboard?.config.liveAvailable} evidence={webEvidence} onBusyChange={setWebBusy} onDraft={next => { choosePlan(next); void loadDashboard().catch(() => setError("The draft was staged, but activity could not refresh.")); }} onEvidence={value => { setWebEvidence(value); if (value && dashboard?.config.liveAvailable) setMode("live"); }} />
               <details className="apx-note"><summary>Additional customer context <span>live mode · optional</span></summary><label className="apx-field"><span className="apx-sr-only">Additional customer context</span><textarea value={note} onChange={(event) => setNote(event.target.value)} disabled={!!busy || mode === "replay"} maxLength={2000} placeholder="For example: explain the refund calculation in the reply." rows={3} /></label><p>Live mode treats this text as untrusted customer input. Replay uses fixed test proposals. Neither can widen the task grant.</p></details>
 <details className="apx-folded"><summary><LockKeyhole size={14} />Task permissions<ChevronDown size={14} /></summary><section className="apx-panel apx-grant-panel" aria-labelledby="grant-title"><div className="apx-panel-heading"><div><span className="apx-section-label">TRUSTED APPLICATION SCOPE</span><h2 id="grant-title">Task permission grant</h2></div><LockKeyhole size={18} className="apx-accent" /></div>
               <div className="apx-grant-note"><ShieldCheck size={15} /><span>{plan ? "Derived on the server from this ticket's records." : "A grant is issued when the task is staged."}</span></div>
               <dl className="apx-grant-list"><GrantRow label="Tenant" value={plan?.grant.tenantId ?? selectedTicket?.tenantId} /><GrantRow label="Customer" value={plan?.grant.customerId ?? selectedTicket?.customerId} /><GrantRow label="Invoice" value={plan?.grant.invoiceId ?? selectedTicket?.invoiceId} /><GrantRow label="Reply recipient" value={plan?.grant.recipient ?? selectedTicket?.customerEmail} /><GrantRow label="Refund maximum" value={plan ? money(plan.grant.maxRefundCents) : "Issued on staging"} /><GrantRow label="Without approval" value={plan ? money(Math.min(plan.grant.autoRefundCents, plan.grant.maxRefundCents)) : "Profile-dependent"} /><GrantRow label="Action budget" value={plan ? `${plan.grant.maxActions} actions` : "Issued on staging"} /><GrantRow label="Expires" value={plan ? timestamp(plan.grant.expiresAt) : "Short-lived grant"} /></dl>
               <div className="apx-grant-boundary"><span className="apx-dot green" />One task. One customer. One invoice.</div>
             </section></details>
-              <div className="apx-planner-footer"><span><LockKeyhole size={13} /> Staging makes no customer changes</span><button className="apx-button apx-button-primary" onClick={stage} disabled={!!busy || webBusy || !selectedTicket}>{busy === "stage" ? <LoaderCircle size={15} className="apx-spin" /> : <Sparkles size={15} />}{busy === "stage" ? "Staging plan…" : "Stage plan"}<ArrowRight size={14} /></button></div>
+              <div className="apx-planner-footer"><span><LockKeyhole size={13} /> Staging makes no customer changes</span><button className="apx-button apx-button-primary" onClick={stage} disabled={!!busy || !selectedTicket}>{busy === "stage" ? <LoaderCircle size={15} className="apx-spin" /> : <Sparkles size={15} />}{busy === "stage" ? "Staging plan…" : "Stage plan"}<ArrowRight size={14} /></button></div>
             </section><aside className="workspace-plan-route"><WorkspacePath /><div className="workspace-route-scope"><span className="workspace-kicker">ASSIGNED SCOPE</span><b>{selectedTicket?.customerName ?? "Select a customer request"}</b><code>{selectedTicket?.invoiceId ?? "No invoice selected"}</code><p>Customer text cannot expand this task&apos;s permissions.</p></div></aside></div>
           <div id="workspace-review" role="tabpanel" aria-labelledby="dock-review" hidden={panel !== "review"} className="apx-focus-view apx-view-review"><section className="apx-panel apx-review-panel" ref={reviewRef} aria-labelledby="review-title">
               <div className="apx-panel-heading"><div><span className="apx-section-label">04 / REVIEW & EXECUTE</span><h2 id="review-title">The change preview</h2></div>{plan && <span className={`apx-badge apx-badge-${plan.status}`}>{plan.status}</span>}</div>
               {plan ? <>
-                <div className="apx-plan-summary"><p>{plan.summary}</p><div><span>{plan.mode === "live" ? `Live · ${plan.model}` : plan.model === "tinyfish-reference-draft-v1" ? "TinyFish reference draft · no LLM" : plan.mode === "external" ? "External proposal · reviewed execution" : "Deterministic test replay"}</span><span>{plan.latencyMs} ms</span><span>{timestamp(plan.createdAt)}</span></div></div>
-                {plan.webEvidence && <WebEvidenceCard evidence={plan.webEvidence} />}
+                <div className="apx-plan-summary"><p>{plan.summary}</p><div><span>{plan.mode === "live" ? `Live · ${plan.model}` : plan.mode === "external" ? "External proposal · reviewed execution" : "Deterministic test replay"}</span><span>{plan.latencyMs} ms</span><span>{timestamp(plan.createdAt)}</span></div></div>
                 {plan.observer && <ObserverSummary observation={plan.observer} />}
                 <div className="apx-review-counts"><span><span className="apx-dot green" /> {allowedCount} within grant or approval</span><span><span className="apx-dot red" /> {blockedCount} blocked · will be skipped</span></div>
                 <div className="apx-actions">{plan.actions.length ? plan.actions.map((item, index) => <ActionCard key={item.action.id} item={item} index={index} planStatus={plan.status} />) : <p className="apx-empty-copy">This plan proposes no executable actions.</p>}</div>
                 {plan.status === "staged" && <div className="apx-execute-panel">
                   {expired && <p className="apx-expiry-warning"><Clock3 size={14} /> This plan has expired. Stage a new plan from the current invoice.</p>}
+                  {retiredReference && <p className="apx-expiry-warning">This saved plan uses a retired reference source. Stage a fresh plan from the current invoice.</p>}
                   {needsApproval && <label className="apx-approval"><input type="checkbox" checked={approved} onChange={(event) => setApproved(event.target.checked)} disabled={!!busy || expired} /><span><b>Approve the flagged actions in this exact plan</b><small>Approval is bound to its receipt. Blocked actions remain blocked.</small></span></label>}
-                  <div className="apx-execute-footer"><button className="apx-button apx-button-secondary" disabled={!!busy} onClick={() => operate("reject")}>{busy === "reject" ? <LoaderCircle size={14} className="apx-spin" /> : <X size={14} />}Reject plan</button><button className="apx-button apx-button-primary" onClick={() => operate("execute")} disabled={!!busy || !allowedCount || expired || (needsApproval && !approved)}>{busy === "execute" ? <LoaderCircle size={15} className="apx-spin" /> : <ShieldCheck size={15} />}{busy === "execute" ? "Executing…" : "Execute permitted actions"}</button></div>
+                  <div className="apx-execute-footer"><button className="apx-button apx-button-secondary" disabled={!!busy} onClick={() => operate("reject")}>{busy === "reject" ? <LoaderCircle size={14} className="apx-spin" /> : <X size={14} />}Reject plan</button><button className="apx-button apx-button-primary" onClick={() => operate("execute")} disabled={!!busy || !allowedCount || expired || retiredReference || (needsApproval && !approved)}>{busy === "execute" ? <LoaderCircle size={15} className="apx-spin" /> : <ShieldCheck size={15} />}{busy === "execute" ? "Executing…" : "Execute permitted actions"}</button></div>
                   <p className="apx-execution-hint">The server rechecks permissions and invoice state at execution. Nothing is sent as real email.</p>
                 </div>}
                 {plan.status === "executed" && <div className="apx-recovery"><div><RotateCcw size={18} /><span><b>Recover this plan&apos;s supported changes</b><p>Restore invoice state and cancel queued sandbox replies. Recovery fails if a later operation changed the invoice. A delivered email or external payment cannot be undone here.</p></span></div><button className="apx-button apx-button-secondary" onClick={() => operate("recover")} disabled={!!busy || !plan.actions.some((item) => item.decision !== "block" && item.reversible)}>{busy === "recover" ? <LoaderCircle size={14} className="apx-spin" /> : <RotateCcw size={14} />}{busy === "recover" ? "Recovering…" : "Recover changes"}</button></div>}
